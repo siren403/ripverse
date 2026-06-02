@@ -1,0 +1,22 @@
+[
+  { "id": "gen_c_001", "name": "Dust Rookie", "set_id": "genesis", "rarity": "common", "value_min": 5, "value_max": 12 },
+  { "id": "gen_c_002", "name": "Corner Nick", "set_id": "genesis", "rarity": "common", "value_min": 5, "value_max": 12 },
+  { "id": "gen_c_003", "name": "Sleeve Scuff", "set_id": "genesis", "rarity": "common", "value_min": 5, "value_max": 12 },
+  { "id": "gen_c_004", "name": "Base Breaker", "set_id": "genesis", "rarity": "common", "value_min": 5, "value_max": 12 },
+  { "id": "gen_c_005", "name": "Foil Tease", "set_id": "genesis", "rarity": "common", "value_min": 5, "value_max": 12 },
+
+  { "id": "gen_u_001", "name": "Clean Pull", "set_id": "genesis", "rarity": "uncommon", "value_min": 12, "value_max": 25 },
+  { "id": "gen_u_002", "name": "Binder Glow", "set_id": "genesis", "rarity": "uncommon", "value_min": 12, "value_max": 25 },
+  { "id": "gen_u_003", "name": "Fresh Edge", "set_id": "genesis", "rarity": "uncommon", "value_min": 12, "value_max": 25 },
+  { "id": "gen_u_004", "name": "Silver Slot", "set_id": "genesis", "rarity": "uncommon", "value_min": 12, "value_max": 25 },
+
+  { "id": "gen_r_001", "name": "Blue Hit", "set_id": "genesis", "rarity": "rare", "value_min": 30, "value_max": 80 },
+  { "id": "gen_r_002", "name": "Short Print", "set_id": "genesis", "rarity": "rare", "value_min": 30, "value_max": 80 },
+  { "id": "gen_r_003", "name": "Market Spark", "set_id": "genesis", "rarity": "rare", "value_min": 30, "value_max": 80 },
+
+  { "id": "gen_e_001", "name": "Purple Chase", "set_id": "genesis", "rarity": "epic", "value_min": 100, "value_max": 250 },
+  { "id": "gen_e_002", "name": "Case Hit", "set_id": "genesis", "rarity": "epic", "value_min": 100, "value_max": 250 },
+
+  { "id": "gen_l_001", "name": "Golden Rip", "set_id": "genesis", "rarity": "legendary", "value_min": 500, "value_max": 1500 },
+  { "id": "gen_l_002", "name": "One More Box", "set_id": "genesis", "rarity": "legendary", "value_min": 500, "value_max": 1500 }
+]

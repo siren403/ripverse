@@ -1,0 +1,51 @@
+name: Usagi Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "playground/usagi/**"
+      - ".github/workflows/usagi-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Usagi
+        run: |
+          curl -fsSL https://usagiengine.com/install.sh | sh
+          echo "$HOME/.usagi/bin" >> "$GITHUB_PATH"
+
+      - name: Export Usagi web build
+        run: |
+          usagi export playground/usagi --target web
+          mkdir -p pages
+          unzip -q export/*-web.zip -d pages
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+  deploy:
+    needs: export
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ripverse Playground</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="app" aria-label="Ripverse Phase 1 Playground">
+      <header class="topbar">
+        <div class="brand">Ripverse</div>
+        <div class="stats" aria-live="polite">
+          <span id="money">$0</span>
+          <span id="boxCount">Boxes 0</span>
+          <span id="packCount">Packs 0</span>
+          <span id="inventoryCount">Kept 0</span>
+        </div>
+      </header>
+
+      <section class="stage" id="stage" aria-live="polite"></section>
+
+      <aside class="log">
+        <div class="log-title">Session</div>
+        <ol id="sessionLog"></ol>
+      </aside>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

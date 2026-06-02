@@ -1,0 +1,22 @@
+[
+  {
+    "id": "starter_box",
+    "name": "Starter Box",
+    "price": 100,
+    "pack_count": 3,
+    "set_id": "genesis",
+    "pack": {
+      "id": "genesis_pack",
+      "name": "Genesis Pack",
+      "card_count": 5,
+      "set_id": "genesis",
+      "rarity_table": [
+        { "rarity": "common", "weight": 0.58 },
+        { "rarity": "uncommon", "weight": 0.26 },
+        { "rarity": "rare", "weight": 0.11 },
+        { "rarity": "epic", "weight": 0.04 },
+        { "rarity": "legendary", "weight": 0.01 }
+      ]
+    }
+  }
+]

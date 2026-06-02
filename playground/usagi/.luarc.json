@@ -1,0 +1,16 @@
+{
+  "diagnostics.globals": [
+    "State",
+    "gfx",
+    "input",
+    "usagi",
+    "sfx",
+    "music",
+    "effect",
+    "util",
+    "_config",
+    "_init",
+    "_update",
+    "_draw"
+  ]
+}
