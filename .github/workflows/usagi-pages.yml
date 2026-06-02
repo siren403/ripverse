@@ -33,7 +33,7 @@ jobs:
         run: |
           usagi export playground/usagi --target web
           mkdir -p pages
-          unzip -q export/*-web.zip -d pages
+          unzip -q *-web.zip -d pages
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
