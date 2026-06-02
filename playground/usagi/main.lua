@@ -29,9 +29,23 @@ local CARD_W = 50
 local CARD_H = 68
 local CARD_GAP = 8
 local CARD_Y = 62
+local BUTTON_W = 126
+local BUTTON_H = 14
+local HIT_H = 20
+
+local HITBOX = {
+  box_buy = { x = 32, y = 136, w = BUTTON_W, h = HIT_H },
+  box_inventory = { x = 178, y = 136, w = BUTTON_W, h = HIT_H },
+  pack_open = { x = 32, y = 136, w = BUTTON_W, h = HIT_H },
+  pack_inventory = { x = 190, y = 136, w = BUTTON_W, h = HIT_H },
+  result_sell = { x = 24, y = 158, w = BUTTON_W, h = HIT_H },
+  result_keep = { x = 172, y = 158, w = BUTTON_W, h = HIT_H },
+  inventory_back = { x = 92, y = 164, w = BUTTON_W, h = HIT_H },
+}
 
 local advance_primary
 local advance_secondary
+local handle_mouse_click
 local buy_box
 local open_pack
 local update_reveal
@@ -61,6 +75,7 @@ local draw_inventory
 local draw_footer
 local draw_panel
 local draw_button
+local point_in_rect
 local short_name
 
 function _config()
@@ -102,6 +117,10 @@ function _update(dt)
 
   if input.key_pressed(input.KEY_I) then
     toggle_inventory()
+  end
+
+  if input.mouse_pressed(input.MOUSE_LEFT) then
+    handle_mouse_click()
   end
 
   if State.screen == "pack_reveal" then
@@ -155,6 +174,34 @@ function advance_secondary()
     toggle_inventory()
   elseif State.screen == "pack_select" then
     toggle_inventory()
+  end
+end
+
+function handle_mouse_click()
+  local mx, my = input.mouse()
+
+  if State.screen == "box_shop" then
+    if point_in_rect(mx, my, HITBOX.box_buy) then
+      buy_box(boxes[1])
+    elseif point_in_rect(mx, my, HITBOX.box_inventory) then
+      toggle_inventory()
+    end
+  elseif State.screen == "pack_select" then
+    if point_in_rect(mx, my, HITBOX.pack_open) then
+      open_pack()
+    elseif point_in_rect(mx, my, HITBOX.pack_inventory) then
+      toggle_inventory()
+    end
+  elseif State.screen == "result_summary" then
+    if point_in_rect(mx, my, HITBOX.result_sell) then
+      sell_all()
+    elseif point_in_rect(mx, my, HITBOX.result_keep) then
+      keep_all()
+    end
+  elseif State.screen == "inventory" then
+    if point_in_rect(mx, my, HITBOX.inventory_back) then
+      State.screen = next_screen_after_inventory()
+    end
   end
 end
 
@@ -359,8 +406,8 @@ function draw_box_shop()
   gfx.text("Price $" .. box.price .. " / " .. box.pack_count .. " packs", 32, 84, COLOR.MUTED)
   gfx.text("Genesis set / 5 cards per pack", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "BTN1 / ENTER  BUY BOX", COLOR.GOOD)
-  draw_button(178, 136, "BTN2 / SPACE  INVENTORY", COLOR.MUTED)
+  draw_button(32, 136, "CLICK / BTN1  BUY", COLOR.GOOD)
+  draw_button(178, 136, "CLICK / BTN2  INV", COLOR.MUTED)
 end
 
 function draw_box_opening()
@@ -385,8 +432,8 @@ function draw_pack_select()
   gfx.text("Each pack reveals 5 cards.", 32, 84, COLOR.MUTED)
   gfx.text("Open the next pack and chase the spike.", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "BTN1 / ENTER  OPEN PACK", COLOR.GOOD)
-  draw_button(190, 136, "BTN2 / SPACE  INVENTORY", COLOR.MUTED)
+  draw_button(32, 136, "CLICK / BTN1  OPEN", COLOR.GOOD)
+  draw_button(190, 136, "CLICK / BTN2  INV", COLOR.MUTED)
 end
 
 function draw_pack_reveal()
@@ -452,8 +499,8 @@ function draw_result_summary()
   draw_reveal_cards()
 
   gfx.text("Total value $" .. State.last_pack_value, 24, 144, COLOR.MONEY)
-  draw_button(24, 158, "BTN1 / ENTER  SELL ALL", COLOR.GOOD)
-  draw_button(172, 158, "BTN2 / SPACE  KEEP ALL", COLOR.RARE)
+  draw_button(24, 158, "CLICK / BTN1  SELL", COLOR.GOOD)
+  draw_button(172, 158, "CLICK / BTN2  KEEP", COLOR.RARE)
 end
 
 function draw_inventory()
@@ -474,7 +521,7 @@ function draw_inventory()
     end
   end
 
-  draw_button(92, 164, "BTN1 / ENTER  BACK", COLOR.GOOD)
+  draw_button(92, 164, "CLICK / BTN1  BACK", COLOR.GOOD)
 end
 
 function draw_footer()
@@ -487,8 +534,15 @@ function draw_panel(x, y, w, h)
 end
 
 function draw_button(x, y, label, color)
-  gfx.rect(x, y, 126, 14, color)
+  gfx.rect(x, y, BUTTON_W, BUTTON_H, color)
   gfx.text(label, x + 4, y + 4, color)
+end
+
+function point_in_rect(px, py, rect)
+  return px >= rect.x
+    and px <= rect.x + rect.w
+    and py >= rect.y
+    and py <= rect.y + rect.h
 end
 
 function short_name(name)
