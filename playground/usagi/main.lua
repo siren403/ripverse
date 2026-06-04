@@ -30,7 +30,7 @@ local CARD_H = 68
 local CARD_GAP = 8
 local CARD_Y = 62
 local BUTTON_W = 126
-local BUTTON_H = 14
+local BUTTON_H = 16
 local HIT_H = 20
 
 local HITBOX = {
@@ -409,7 +409,7 @@ function draw_box_shop()
   gfx.text("Genesis / 5 cards each", 32, 100, COLOR.MUTED)
 
   draw_button(32, 136, "BUY", COLOR.GOOD)
-  draw_button(178, 136, "INV", COLOR.RARE)
+  draw_button(178, 136, "CARDS", COLOR.RARE)
 end
 
 function draw_box_opening()
@@ -435,7 +435,7 @@ function draw_pack_select()
   gfx.text("Open the next one.", 32, 100, COLOR.MUTED)
 
   draw_button(32, 136, "OPEN", COLOR.GOOD)
-  draw_button(190, 136, "INV", COLOR.RARE)
+  draw_button(190, 136, "CARDS", COLOR.RARE)
 end
 
 function draw_pack_reveal()
@@ -528,18 +528,18 @@ end
 
 function draw_footer()
   gfx.text(State.message, 8, 168, COLOR.MUTED)
-  gfx.text(footer_hint(), 176, 168, COLOR.MUTED)
+  gfx.text(footer_hint(), 150, 168, COLOR.MUTED)
 end
 
 function footer_hint()
   if State.screen == "box_shop" then
-    return "click/enter buy"
+    return "enter buy | space cards"
   elseif State.screen == "pack_select" then
-    return "click/enter open"
+    return "enter open | space cards"
   elseif State.screen == "result_summary" then
-    return "enter sell / space keep"
+    return "enter sell | space keep"
   elseif State.screen == "inventory" then
-    return "click/enter back"
+    return "enter back"
   end
 
   return ""
@@ -551,8 +551,12 @@ function draw_panel(x, y, w, h)
 end
 
 function draw_button(x, y, label, color)
+  local text_w, text_h = usagi.measure_text(label)
+  local text_x = x + math.floor((BUTTON_W - text_w) / 2)
+  local text_y = y + math.floor((BUTTON_H - text_h) / 2)
+
   gfx.rect(x, y, BUTTON_W, BUTTON_H, color)
-  gfx.text(label, x + 4, y + 4, color)
+  gfx.text(label, text_x, text_y, color)
 end
 
 function point_in_rect(px, py, rect)
