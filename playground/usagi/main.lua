@@ -39,8 +39,6 @@ local CARD_GAP = 8
 local CARD_Y = 62
 local STACK_CARD_X = 118
 local STACK_CARD_Y = 70
-local DISCARD_CARD_X = 38
-local DISCARD_CARD_Y = 70
 local DRAG_COMMIT_DISTANCE = 58
 local TEAR_DISTANCE = 34
 local CARD_PAD_X = 5
@@ -78,6 +76,7 @@ local buy_box
 local selected_box
 local start_pack
 local advance_pack_reveal
+local begin_face_up_reveal
 local update_reveal
 local generate_pack
 local build_reveal_order
@@ -102,7 +101,7 @@ local draw_pack_reveal
 local draw_pack_status
 local draw_pack_wrapper
 local draw_pack_stack
-local draw_drag_card
+local draw_flip_stack
 local draw_current_reveal_card
 local draw_reveal_cards
 local draw_card
@@ -327,24 +326,18 @@ function update_pack_drag()
   if input.mouse_pressed(input.MOUSE_LEFT) then
     if State.reveal_phase == "wrapper" and point_in_rect(mx, my, { x = 126, y = 58, w = 68, h = 88 }) then
       State.drag = { kind = "tear", start_x = mx }
-    elseif State.reveal_phase == "trick_stack" and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y - 8, w = CARD_W + 8, h = CARD_H + 8 }) then
+    elseif (State.reveal_phase == "trick_stack" or State.reveal_phase == "flip_stack")
+      and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y - 8, w = CARD_W + 8, h = CARD_H + 8 }) then
       State.drag = { kind = "trick", start_x = mx }
       State.card_drag_x = STACK_CARD_X
       State.card_drag_y = STACK_CARD_Y
-    elseif (State.reveal_phase == "card_back" or State.reveal_phase == "card_reveal")
-      and State.reveal_index < #State.revealed_cards
+    elseif State.reveal_phase == "card_reveal"
+      and State.reveal_index <= #State.revealed_cards
       and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y, w = CARD_W, h = CARD_H }) then
       State.drag = { kind = "card", start_x = mx }
-      State.drag_card = State.revealed_cards[State.reveal_index + 1]
+      State.drag_card = State.revealed_cards[State.reveal_index]
       State.card_drag_x = STACK_CARD_X
       State.card_drag_y = STACK_CARD_Y
-    elseif State.reveal_phase == "card_reveal"
-      and State.reveal_index >= #State.revealed_cards
-      and point_in_rect(mx, my, { x = DISCARD_CARD_X, y = DISCARD_CARD_Y, w = CARD_W, h = CARD_H }) then
-      State.drag = { kind = "finish", start_x = mx }
-      State.drag_card = State.revealed_cards[State.reveal_index]
-      State.card_drag_x = DISCARD_CARD_X
-      State.card_drag_y = DISCARD_CARD_Y
     end
   end
 
@@ -356,13 +349,10 @@ function update_pack_drag()
       State.card_drag_x = STACK_CARD_X + math.floor(weighted_drag_progress(State.card_drag_progress, nil) * 60)
       State.card_drag_y = STACK_CARD_Y
     elseif State.drag.kind == "card" then
-      State.card_drag_progress = weighted_drag_progress(drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE), State.drag_card)
+      local reveal_card = State.revealed_cards[State.reveal_index + 1] or State.drag_card
+      State.card_drag_progress = weighted_drag_progress(drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE), reveal_card)
       State.card_drag_x = STACK_CARD_X + math.floor(State.card_drag_progress * 72)
       State.card_drag_y = STACK_CARD_Y
-    elseif State.drag.kind == "finish" then
-      State.card_drag_progress = drag_progress(mx - State.drag.start_x, 46)
-      State.card_drag_x = DISCARD_CARD_X + math.floor(State.card_drag_progress * 42)
-      State.card_drag_y = DISCARD_CARD_Y
     end
   elseif State.drag then
     if State.drag.kind == "tear" then
@@ -377,10 +367,6 @@ function update_pack_drag()
       end
     elseif State.drag.kind == "card" then
       if State.card_drag_progress >= 0.86 then
-        advance_pack_reveal()
-      end
-    elseif State.drag.kind == "finish" then
-      if State.card_drag_progress >= 0.82 then
         advance_pack_reveal()
       end
     end
@@ -454,22 +440,13 @@ function advance_pack_reveal()
       State.reveal_phase = "trick_stack"
       State.message = "Move cards. Hit last."
     else
-      State.reveal_phase = "card_back"
-      State.message = "Pull the first card."
+      begin_face_up_reveal()
     end
   elseif State.reveal_phase == "trick_stack" then
-    State.reveal_phase = "card_back"
+    State.reveal_phase = "flip_stack"
     State.message = "Flip the stack."
-  elseif State.reveal_phase == "card_back" then
-    State.reveal_index = State.reveal_index + 1
-    State.cards_seen = State.cards_seen + 1
-    State.reveal_phase = "card_reveal"
-
-    if State.reveal_index >= #State.revealed_cards then
-      State.message = "Slide card to finish."
-    else
-      State.message = "Slide next card."
-    end
+  elseif State.reveal_phase == "flip_stack" then
+    begin_face_up_reveal()
   elseif State.reveal_phase == "card_reveal" then
     if State.reveal_index >= #State.revealed_cards then
       State.screen = "result_summary"
@@ -484,6 +461,18 @@ function advance_pack_reveal()
         State.message = "Slide next card."
       end
     end
+  end
+end
+
+function begin_face_up_reveal()
+  State.reveal_index = 1
+  State.cards_seen = State.cards_seen + 1
+  State.reveal_phase = "card_reveal"
+
+  if State.reveal_index >= #State.revealed_cards then
+    State.message = "Final card."
+  else
+    State.message = "Slide top card."
   end
 end
 
@@ -745,8 +734,10 @@ function draw_pack_reveal()
 
   if State.reveal_phase == "wrapper" then
     draw_pack_wrapper()
-  elseif State.reveal_phase == "trick_stack" or State.reveal_phase == "card_back" then
+  elseif State.reveal_phase == "trick_stack" then
     draw_pack_stack()
+  elseif State.reveal_phase == "flip_stack" then
+    draw_flip_stack()
   else
     draw_current_reveal_card()
   end
@@ -794,55 +785,24 @@ function draw_pack_wrapper()
 end
 
 function draw_pack_stack()
-  if State.reveal_phase == "trick_stack" then
-    gfx.text("BACK FACING", 112, 52, COLOR.MUTED)
-    gfx.rect_fill(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.PANEL_DARK)
-    gfx.rect(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.RARE)
-  else
-    gfx.text("SLIDE RIGHT", 118, 52, COLOR.MUTED)
-  end
-
+  gfx.text("BACK FACING", 112, 52, COLOR.MUTED)
+  gfx.rect_fill(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.PANEL_DARK)
+  gfx.rect(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.RARE)
   draw_card_back(STACK_CARD_X, STACK_CARD_Y)
 
   if State.drag and State.drag.kind == "trick" then
     draw_card_back(State.card_drag_x, State.card_drag_y)
-  elseif State.drag and State.drag.kind == "card" and State.drag_card ~= nil then
-    draw_drag_card(State.drag_card, State.card_drag_x, State.card_drag_y)
   end
 end
 
-function draw_drag_card(card, x, y)
-  local progress = State.card_drag_progress
-  local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
-  local score = rarity_score(card)
-  local pulse = math.floor(State.reveal_timer * 14) % 2
+function draw_flip_stack()
+  gfx.text("FLIP FACE UP", 106, 52, COLOR.MUTED)
+  gfx.rect_fill(STACK_CARD_X - 8, STACK_CARD_Y - 6, CARD_W, CARD_H, COLOR.PANEL_DARK)
+  gfx.rect(STACK_CARD_X - 8, STACK_CARD_Y - 6, CARD_W, CARD_H, COLOR.MUTED)
+  draw_card_back(STACK_CARD_X, STACK_CARD_Y)
 
-  if progress < 0.16 then
-    draw_card_back(x, y)
-    return
-  end
-
-  gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
-  gfx.rect_ex(x, y, CARD_W, CARD_H, score >= 3 and 3 or 1, color)
-
-  if score >= 4 and pulse == 1 then
-    gfx.rect(x - 2, y - 2, CARD_W + 4, CARD_H + 4, color)
-  end
-
-  if progress >= 0.42 then
-    draw_fit_text(card.rarity, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
-  else
-    gfx.text("???", x + 14, y + 31, color)
-  end
-
-  if progress >= 0.68 then
-    draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
-  end
-
-  if progress >= 0.82 then
-    draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
-  else
-    gfx.text("PEEK", x + 11, y + 9, COLOR.MUTED)
+  if State.drag and State.drag.kind == "trick" then
+    draw_card_back(State.card_drag_x, State.card_drag_y)
   end
 end
 
@@ -853,18 +813,15 @@ function draw_current_reveal_card()
     return
   end
 
-  if State.drag and State.drag.kind == "finish" and State.drag_card ~= nil then
-    draw_card(State.drag_card, State.card_drag_x, State.card_drag_y, true)
-  else
-    draw_card(card, DISCARD_CARD_X, DISCARD_CARD_Y, true)
+  gfx.text("SLIDE RIGHT", 118, 52, COLOR.MUTED)
+  if State.reveal_index < #State.revealed_cards then
+    draw_card(State.revealed_cards[State.reveal_index + 1], STACK_CARD_X, STACK_CARD_Y, false)
   end
 
-  if State.reveal_index < #State.revealed_cards then
-    draw_card_back(STACK_CARD_X, STACK_CARD_Y)
-
-    if State.drag and State.drag.kind == "card" and State.drag_card ~= nil then
-      draw_drag_card(State.drag_card, State.card_drag_x, State.card_drag_y)
-    end
+  if State.drag and State.drag.kind == "card" and State.drag_card ~= nil then
+    draw_card(State.drag_card, State.card_drag_x, State.card_drag_y, true)
+  else
+    draw_card(card, STACK_CARD_X, STACK_CARD_Y, true)
   end
 end
 
