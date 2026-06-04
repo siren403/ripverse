@@ -56,6 +56,12 @@ On a headless cloud host, use Tailscale Serve or GitHub Pages for browser access
 
 When a repeated clarification, agent mistake, or fragile convention appears, use `harness-stabilizer` to decide whether it should become durable guidance in `AGENTS.md`, `docs/`, a skill, a script, or an agent.
 
+When the user asks why something was done, critiques an implementation, or asks whether a direction is appropriate, treat it as analysis or feedback first. Do not edit, commit, push, or deploy unless the user explicitly asks to proceed or the message clearly requests implementation.
+
+For `$harness-stabilizer`, default to a stabilization report and proposed artifact changes. Apply harness edits only after explicit approval unless the user directly asks to update the harness.
+
+For approved work, keep the repository in a clean, preserved state between tasks. Commit completed changes promptly after validation so the user can judge from a stable checkpoint. Do not leave intended work uncommitted at turn end unless the user asks to hold it, the change is still exploratory, validation is blocked, or committing would mix unrelated work.
+
 ## Turn Closure
 
 When ending a work turn, state the next concrete objective or the desirable immediate objective when it is useful for orientation. Keep it as a milestone that preserves direction, not as a broad recommendation list.
