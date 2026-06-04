@@ -25,22 +25,38 @@ local RARITY_COLORS = {
   legendary = COLOR.LEGENDARY,
 }
 
+local SCREEN_W = 320
+local STATUS_H = 24
+local FOOTER_Y = 168
+local FOOTER_LEFT_X = 8
+local FOOTER_RIGHT_X = 312
+local PANEL_MAIN = { x = 18, y = 38, w = 284, h = 86 }
+local PANEL_FOCUS = { x = 70, y = 44, w = 180, h = 94 }
+local PANEL_INVENTORY = { x = 12, y = 34, w = 296, h = 124 }
 local CARD_W = 50
 local CARD_H = 68
 local CARD_GAP = 8
 local CARD_Y = 62
+local CARD_PAD_X = 5
+local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
 local BUTTON_W = 126
 local BUTTON_H = 16
+local BUTTON_GAP = 16
+local BUTTON_ROW_Y = 138
+local RESULT_VALUE_Y = 132
+local RESULT_BUTTON_Y = 150
 local HIT_H = 20
+local TWO_BUTTONS_X = math.floor((SCREEN_W - BUTTON_W * 2 - BUTTON_GAP) / 2)
+local ONE_BUTTON_X = math.floor((SCREEN_W - BUTTON_W) / 2)
 
 local HITBOX = {
-  box_buy = { x = 32, y = 136, w = BUTTON_W, h = HIT_H },
-  box_inventory = { x = 178, y = 136, w = BUTTON_W, h = HIT_H },
-  pack_open = { x = 32, y = 136, w = BUTTON_W, h = HIT_H },
-  pack_inventory = { x = 190, y = 136, w = BUTTON_W, h = HIT_H },
-  result_sell = { x = 24, y = 148, w = BUTTON_W, h = HIT_H },
-  result_keep = { x = 172, y = 148, w = BUTTON_W, h = HIT_H },
-  inventory_back = { x = 92, y = 148, w = BUTTON_W, h = HIT_H },
+  box_buy = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  box_inventory = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  pack_open = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  pack_inventory = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  result_sell = { x = TWO_BUTTONS_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
+  result_keep = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
+  inventory_back = { x = ONE_BUTTON_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
 }
 
 local advance_primary
@@ -76,8 +92,11 @@ local draw_footer
 local footer_hint
 local draw_panel
 local draw_button
+local draw_button_group
+local draw_right_text
+local draw_fit_text
 local point_in_rect
-local short_name
+local fit_text
 
 function _config()
   return {
@@ -390,26 +409,25 @@ function next_screen_after_inventory()
 end
 
 function draw_header()
-  gfx.rect_fill(0, 0, 320, 24, COLOR.PANEL_DARK)
+  gfx.rect_fill(0, 0, SCREEN_W, STATUS_H, COLOR.PANEL_DARK)
   gfx.text("RIP", 8, 6, COLOR.TEXT)
   gfx.text("$" .. State.money, 48, 6, COLOR.MONEY)
-  gfx.text("B" .. State.box_count_opened, 112, 6, COLOR.MUTED)
-  gfx.text("P" .. State.pack_count_opened, 154, 6, COLOR.MUTED)
-  gfx.text("C" .. State.cards_seen, 196, 6, COLOR.MUTED)
-  gfx.text("K" .. #State.inventory, 270, 6, COLOR.MUTED)
+  gfx.text("BOX " .. State.box_count_opened, 100, 6, COLOR.MUTED)
+  gfx.text("PACK " .. State.pack_count_opened, 154, 6, COLOR.MUTED)
+  gfx.text("SEEN " .. State.cards_seen, 218, 6, COLOR.MUTED)
+  draw_right_text("KEPT " .. #State.inventory, 314, 6, COLOR.MUTED)
 end
 
 function draw_box_shop()
   local box = boxes[1]
 
-  draw_panel(18, 38, 284, 86)
+  draw_panel(PANEL_MAIN.x, PANEL_MAIN.y, PANEL_MAIN.w, PANEL_MAIN.h)
   gfx.text("BOX SHOP", 32, 48, COLOR.TEXT)
   gfx.text(box.name, 32, 68, COLOR.MONEY)
   gfx.text("$" .. box.price .. " / " .. box.pack_count .. " packs", 32, 84, COLOR.MUTED)
   gfx.text("Genesis / 5 cards each", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "BUY", COLOR.GOOD)
-  draw_button(178, 136, "CARDS", COLOR.RARE)
+  draw_button_group(BUTTON_ROW_Y, "BUY", COLOR.GOOD, "CARDS", COLOR.RARE)
 end
 
 function draw_box_opening()
@@ -420,7 +438,7 @@ function draw_box_opening()
     color = COLOR.LEGENDARY
   end
 
-  draw_panel(70, 44, 180, 94)
+  draw_panel(PANEL_FOCUS.x, PANEL_FOCUS.y, PANEL_FOCUS.w, PANEL_FOCUS.h)
   gfx.text("STARTER BOX", 104, 58, COLOR.TEXT)
   gfx.rect_ex(120, 76, 80, 46, 3, color)
   gfx.text("3 PACKS", 138, 94, color)
@@ -428,14 +446,13 @@ function draw_box_opening()
 end
 
 function draw_pack_select()
-  draw_panel(18, 38, 284, 86)
+  draw_panel(PANEL_MAIN.x, PANEL_MAIN.y, PANEL_MAIN.w, PANEL_MAIN.h)
   gfx.text("OPENED BOX", 32, 48, COLOR.TEXT)
   gfx.text("Packs remaining: " .. State.packs_remaining, 32, 68, COLOR.MONEY)
   gfx.text("5 cards per pack", 32, 84, COLOR.MUTED)
   gfx.text("Open the next one.", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "OPEN", COLOR.GOOD)
-  draw_button(190, 136, "CARDS", COLOR.RARE)
+  draw_button_group(BUTTON_ROW_Y, "OPEN", COLOR.GOOD, "CARDS", COLOR.RARE)
 end
 
 function draw_pack_reveal()
@@ -485,9 +502,9 @@ function draw_card(card, x, y, is_current)
 
   gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
   gfx.rect_ex(x, y, CARD_W, CARD_H, is_current and 3 or 1, color)
-  gfx.text(short_name(card.name), x + 5, y + 9, COLOR.TEXT)
-  gfx.text(card.rarity, x + 5, y + 31, color)
-  gfx.text("$" .. card.base_value, x + 5, y + 52, COLOR.MONEY)
+  draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
+  draw_fit_text(card.rarity, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
+  draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
 end
 
 function draw_card_back(x, y)
@@ -500,13 +517,12 @@ function draw_result_summary()
   gfx.text("PACK RESULT", 16, 34, COLOR.TEXT)
   draw_reveal_cards()
 
-  gfx.text("Value $" .. State.last_pack_value, 24, 140, COLOR.MONEY)
-  draw_button(24, 148, "SELL", COLOR.GOOD)
-  draw_button(172, 148, "KEEP", COLOR.RARE)
+  gfx.text("VALUE $" .. State.last_pack_value, TWO_BUTTONS_X, RESULT_VALUE_Y, COLOR.MONEY)
+  draw_button_group(RESULT_BUTTON_Y, "SELL", COLOR.GOOD, "KEEP", COLOR.RARE)
 end
 
 function draw_inventory()
-  draw_panel(12, 34, 296, 124)
+  draw_panel(PANEL_INVENTORY.x, PANEL_INVENTORY.y, PANEL_INVENTORY.w, PANEL_INVENTORY.h)
   gfx.text("INVENTORY", 24, 44, COLOR.TEXT)
 
   if #State.inventory == 0 then
@@ -517,18 +533,18 @@ function draw_inventory()
       local card = State.inventory[#State.inventory - i + 1]
       local y = 62 + (i - 1) * 12
       local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
-      gfx.text(card.name, 24, y, COLOR.TEXT)
+      draw_fit_text(card.name, 24, y, 112, COLOR.TEXT)
       gfx.text(card.rarity, 148, y, color)
       gfx.text("$" .. card.base_value, 242, y, COLOR.MONEY)
     end
   end
 
-  draw_button(92, 148, "BACK", COLOR.GOOD)
+  draw_button(ONE_BUTTON_X, RESULT_BUTTON_Y, "BACK", COLOR.GOOD)
 end
 
 function draw_footer()
-  gfx.text(State.message, 8, 168, COLOR.MUTED)
-  gfx.text(footer_hint(), 150, 168, COLOR.MUTED)
+  draw_fit_text(State.message, FOOTER_LEFT_X, FOOTER_Y, 150, COLOR.MUTED)
+  draw_right_text(footer_hint(), FOOTER_RIGHT_X, FOOTER_Y, COLOR.MUTED)
 end
 
 function footer_hint()
@@ -559,6 +575,20 @@ function draw_button(x, y, label, color)
   gfx.text(label, text_x, text_y, color)
 end
 
+function draw_button_group(y, left_label, left_color, right_label, right_color)
+  draw_button(TWO_BUTTONS_X, y, left_label, left_color)
+  draw_button(TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y, right_label, right_color)
+end
+
+function draw_right_text(text, right_x, y, color)
+  local text_w = usagi.measure_text(text)
+  gfx.text(text, right_x - text_w, y, color)
+end
+
+function draw_fit_text(text, x, y, max_w, color)
+  gfx.text(fit_text(text, max_w), x, y, color)
+end
+
 function point_in_rect(px, py, rect)
   return px >= rect.x
     and px <= rect.x + rect.w
@@ -566,10 +596,25 @@ function point_in_rect(px, py, rect)
     and py <= rect.y + rect.h
 end
 
-function short_name(name)
-  if #name <= 12 then
-    return name
+function fit_text(text, max_w)
+  local text_w = usagi.measure_text(text)
+  if text_w <= max_w then
+    return text
   end
 
-  return string.sub(name, 1, 12)
+  local suffix = "."
+  local suffix_w = usagi.measure_text(suffix)
+  local result = ""
+
+  for i = 1, #text do
+    local candidate = string.sub(text, 1, i)
+    local candidate_w = usagi.measure_text(candidate)
+    if candidate_w + suffix_w > max_w then
+      break
+    end
+
+    result = candidate
+  end
+
+  return result .. suffix
 end

@@ -28,11 +28,33 @@ Avoid text-heavy panels. Use short labels and put input help in the footer.
 ```text
 0-23      top status bar
 24-135    active stage
-136-163   actions
+136-163   actions / result value
 164-179   footer hint / feedback
 ```
 
 Keep these regions stable across screens so opening, selling, and returning to the next box never feels like a navigation puzzle.
+
+## Layout Tokens
+
+Treat coordinates as named layout tokens before placing UI.
+
+```text
+screen: w=320 h=180
+status: x=0 y=0 w=320 h=24
+main panel: x=18 y=38 w=284 h=86
+focused panel: x=70 y=44 w=180 h=94
+inventory panel: x=12 y=34 w=296 h=124
+button: w=126 h=16
+two-button group: gap=16 centered in 320px frame
+default button row: y=138
+result value row: y=132
+result button row: y=150
+footer: y=168 left x=8 right x=312
+```
+
+Do not hand-place paired buttons. Use the centered two-button group token so `OPEN/CARDS`, `BUY/CARDS`, and `SELL/KEEP` share the same horizontal rhythm.
+
+Keep text in measured containers. If text can vary by data, draw it through a fit/truncate helper instead of assuming character count.
 
 ## Palette Roles
 
@@ -71,10 +93,11 @@ Always show:
 money
 boxes opened
 packs opened
+cards seen
 kept cards
 ```
 
-Status values should be compact. Do not use full labels when abbreviations are clear.
+Status values should be compact but recognizable. Prefer `BOX 1`, `PACK 1`, `SEEN 5`, `KEPT 5` over single-letter counters like `B1`, `P1`, `C5`, `K5`.
 
 ### Panels
 
@@ -124,6 +147,8 @@ rarity
 value
 ```
 
+Card text must stay inside the card border. Fit dynamic fields to the card text width instead of clipping or allowing overflow.
+
 Higher rarity should differ by border color and reveal hold timing. Legendary cards may add a stronger border or pulse, but avoid effects that slow down the next pack.
 
 ### Footer
@@ -137,6 +162,8 @@ next action orientation
 ```
 
 Keep footer text short enough for 320px width.
+
+Use a split footer: feedback on the left, input hint right-aligned on the right. Both sides must be measured or truncated so they do not collide.
 
 ## Copy Rules
 
