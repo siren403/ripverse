@@ -141,6 +141,7 @@ local draw_reveal_cards
 local draw_card
 local draw_card_back
 local draw_card_peek
+local draw_tension_line
 local draw_result_summary
 local draw_inventory
 local draw_footer
@@ -151,7 +152,7 @@ local draw_button_group
 local draw_right_text
 local draw_fit_text
 local drag_progress
-local weighted_drag_progress
+local rubber_band_drag
 local drag_profile
 local point_in_rect
 local fit_text
@@ -193,6 +194,9 @@ function _init()
     card_drag_x = 0,
     card_drag_y = 0,
     card_drag_progress = 0,
+    card_pointer_x = 0,
+    card_tension_gap = 0,
+    card_snap_ready = false,
     box_count_opened = 0,
     pack_count_opened = 0,
     cards_seen = 0,
@@ -411,6 +415,9 @@ function update_pack_drag()
       State.drag_card = State.revealed_cards[State.reveal_index]
       State.card_drag_x = STACK_CARD_X
       State.card_drag_y = STACK_CARD_Y
+      State.card_pointer_x = STACK_CARD_X
+      State.card_tension_gap = 0
+      State.card_snap_ready = false
     end
   end
 
@@ -425,9 +432,15 @@ function update_pack_drag()
       end
     elseif State.drag.kind == "card" then
       local reveal_card = State.revealed_cards[State.reveal_index + 1] or State.drag_card
-      State.card_drag_progress = weighted_drag_progress(drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE), reveal_card)
-      State.card_drag_x = STACK_CARD_X + math.floor(State.card_drag_progress * 72)
-      State.card_drag_y = STACK_CARD_Y - math.floor(drag_profile(reveal_card).lift * math.sin(State.card_drag_progress * math.pi))
+      local profile = drag_profile(reveal_card)
+      local pointer_dx = math.max(0, mx - State.drag.start_x)
+      local card_dx = rubber_band_drag(pointer_dx, profile)
+      State.card_pointer_x = STACK_CARD_X + pointer_dx
+      State.card_drag_x = STACK_CARD_X + math.floor(card_dx)
+      State.card_drag_progress = math.max(0, math.min(1, card_dx / DRAG_COMMIT_DISTANCE))
+      State.card_tension_gap = math.max(0, pointer_dx - card_dx)
+      State.card_snap_ready = pointer_dx >= profile.breakpoint
+      State.card_drag_y = STACK_CARD_Y - math.floor(profile.lift * math.min(1, State.card_tension_gap / 32))
     end
   elseif State.drag then
     if State.drag.kind == "tear" then
@@ -437,7 +450,7 @@ function update_pack_drag()
         State.tear_progress = 0
       end
     elseif State.drag.kind == "card" then
-      if State.card_drag_progress >= 0.86 then
+      if State.card_snap_ready then
         advance_pack_reveal()
       end
     end
@@ -447,6 +460,9 @@ function update_pack_drag()
     State.card_drag_x = 0
     State.card_drag_y = 0
     State.card_drag_progress = 0
+    State.card_pointer_x = 0
+    State.card_tension_gap = 0
+    State.card_snap_ready = false
   end
 end
 
@@ -1142,6 +1158,7 @@ function draw_current_reveal_card()
     draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false)
     if State.drag and State.drag.kind == "card" then
       draw_card_peek(next_card, State.card_drag_progress)
+      draw_tension_line(next_card)
     end
   end
 
@@ -1197,6 +1214,27 @@ function draw_card_peek(card, progress)
   gfx.rect(STACK_CARD_X - inset, STACK_CARD_Y - inset, CARD_W + inset * 2, CARD_H + inset * 2, color)
   if profile.peek >= 2 and shine == 1 then
     gfx.rect(STACK_CARD_X + 3, STACK_CARD_Y + 3, CARD_W - 6, CARD_H - 6, color)
+  end
+end
+
+function draw_tension_line(card)
+  if State.card_tension_gap <= 2 then
+    return
+  end
+
+  local profile = drag_profile(card)
+  local color = rarity_color(card.rarity)
+  local y = STACK_CARD_Y + CARD_H + 5
+  local x1 = State.card_drag_x + CARD_W
+  local x2 = math.min(State.card_pointer_x, STACK_CARD_X + 96)
+  local mid = math.floor((x1 + x2) / 2)
+  local sag = math.min(8, math.floor(State.card_tension_gap / profile.sag_divisor))
+
+  gfx.line(x1, y, mid, y + sag, color)
+  gfx.line(mid, y + sag, x2, y, color)
+  if State.card_snap_ready then
+    gfx.rect(STACK_CARD_X - 4, STACK_CARD_Y - 4, CARD_W + 8, CARD_H + 8, color)
+    draw_fit_text("SNAP", STACK_CARD_X + 13, STACK_CARD_Y - 12, 28, color)
   end
 end
 
@@ -1294,40 +1332,39 @@ function drag_progress(distance, full_distance)
   return math.max(0, math.min(1, progress))
 end
 
-function weighted_drag_progress(raw, card)
-  local profile = drag_profile(card)
-  local score = profile.tier
-
-  if score <= 2 then
-    return raw
+function rubber_band_drag(pointer_dx, profile)
+  if pointer_dx <= 0 then
+    return 0
   end
 
-  if raw < 0.20 then
-    return raw * profile.early
-  elseif raw < 0.52 then
-    return 0.20 * profile.early + (raw - 0.20) * profile.mid
-  elseif raw < 0.78 then
-    return profile.hold + (raw - 0.52) * profile.late
+  if profile.direct then
+    return math.min(profile.open_dx, pointer_dx * profile.follow)
   end
 
-  local finish = profile.release + (raw - 0.78) * profile.snap
-  return math.max(0, math.min(1, finish))
+  if pointer_dx >= profile.breakpoint then
+    local over = pointer_dx - profile.breakpoint
+    return math.min(profile.open_dx, profile.hold_dx + over * profile.snap_rate)
+  end
+
+  local normalized = pointer_dx / profile.breakpoint
+  local eased = 1 - (1 / (1 + normalized * profile.resistance))
+  return profile.hold_dx * eased
 end
 
 function drag_profile(card)
   local tier = rarity_score(card)
 
   if tier <= 2 then
-    return { tier = tier, early = 1.00, mid = 1.00, hold = 0.52, late = 1.00, release = 0.78, snap = 1.15, lift = 0, peek = 0 }
+    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, sag_divisor = 8 }
   elseif tier <= 3 then
-    return { tier = tier, early = 0.72, mid = 0.68, hold = 0.36, late = 0.82, release = 0.58, snap = 2.25, lift = 2, peek = 1 }
+    return { tier = tier, resistance = 1.10, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 2, peek = 1, sag_divisor = 7 }
   elseif tier <= 4 then
-    return { tier = tier, early = 0.54, mid = 0.48, hold = 0.26, late = 0.62, release = 0.48, snap = 2.75, lift = 4, peek = 1 }
+    return { tier = tier, resistance = 1.75, breakpoint = 68, hold_dx = 25, open_dx = 72, snap_rate = 2.4, lift = 4, peek = 1, sag_divisor = 6 }
   elseif tier <= 6 then
-    return { tier = tier, early = 0.38, mid = 0.34, hold = 0.19, late = 0.44, release = 0.36, snap = 3.35, lift = 6, peek = 2 }
+    return { tier = tier, resistance = 2.65, breakpoint = 78, hold_dx = 19, open_dx = 72, snap_rate = 2.9, lift = 6, peek = 2, sag_divisor = 5 }
   end
 
-  return { tier = tier, early = 0.28, mid = 0.25, hold = 0.14, late = 0.34, release = 0.28, snap = 3.85, lift = 8, peek = 2 }
+  return { tier = tier, resistance = 3.40, breakpoint = 86, hold_dx = 15, open_dx = 72, snap_rate = 3.3, lift = 8, peek = 2, sag_divisor = 4 }
 end
 
 function point_in_rect(px, py, rect)
