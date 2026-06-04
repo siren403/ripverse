@@ -8,56 +8,24 @@
     "pack": {
       "id": "genesis_pack",
       "name": "Genesis Pack",
-      "card_count": 5,
       "set_id": "genesis",
-      "slot_table": [
-        {
-          "slot": "base_1",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "base_2",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "uncommon",
-          "label": "uncommon",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "uncommon", "weight": 1.0 }]
-        },
-        {
-          "slot": "parallel",
-          "label": "parallel",
-          "treatment": "reverse",
-          "rarity_table": [
-            { "rarity": "common", "weight": 0.56 },
-            { "rarity": "uncommon", "weight": 0.31 },
-            { "rarity": "rare", "weight": 0.11 },
-            { "rarity": "epic", "weight": 0.02 }
-          ]
-        },
-        {
-          "slot": "hit",
-          "label": "hit",
-          "treatment": "holo",
-          "rarity_table": [
-            { "rarity": "rare", "weight": 0.88 },
-            { "rarity": "epic", "weight": 0.10 },
-            { "rarity": "legendary", "weight": 0.02 }
-          ]
-        }
-      ],
-      "rarity_table": [
-        { "rarity": "common", "weight": 0.58 },
-        { "rarity": "uncommon", "weight": 0.26 },
-        { "rarity": "rare", "weight": 0.11 },
-        { "rarity": "epic", "weight": 0.04 },
-        { "rarity": "legendary", "weight": 0.01 }
-      ]
+      "model_id": "sv_five_card",
+      "slot_overrides": {
+        "parallel": [
+          { "rarity": "common", "weight": 0.60 },
+          { "rarity": "uncommon", "weight": 0.30 },
+          { "rarity": "rare", "weight": 0.09 },
+          { "rarity": "double_rare", "weight": 0.01 }
+        ],
+        "hit": [
+          { "rarity": "rare", "weight": 0.88 },
+          { "rarity": "double_rare", "weight": 0.08 },
+          { "rarity": "ultra_rare", "weight": 0.029 },
+          { "rarity": "illustration_rare", "weight": 0.009 },
+          { "rarity": "special_illustration_rare", "weight": 0.001 },
+          { "rarity": "hyper_rare", "weight": 0.001 }
+        ]
+      }
     }
   },
   {
@@ -69,57 +37,25 @@
     "pack": {
       "id": "spark_pack",
       "name": "Spark Pack",
-      "card_count": 5,
       "set_id": "genesis",
-      "slot_table": [
-        {
-          "slot": "base_1",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "base_2",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "uncommon",
-          "label": "uncommon",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "uncommon", "weight": 1.0 }]
-        },
-        {
-          "slot": "parallel",
-          "label": "parallel",
-          "treatment": "reverse",
-          "rarity_table": [
-            { "rarity": "common", "weight": 0.48 },
-            { "rarity": "uncommon", "weight": 0.32 },
-            { "rarity": "rare", "weight": 0.16 },
-            { "rarity": "epic", "weight": 0.035 },
-            { "rarity": "legendary", "weight": 0.005 }
-          ]
-        },
-        {
-          "slot": "hit",
-          "label": "hit",
-          "treatment": "holo",
-          "rarity_table": [
-            { "rarity": "rare", "weight": 0.82 },
-            { "rarity": "epic", "weight": 0.15 },
-            { "rarity": "legendary", "weight": 0.03 }
-          ]
-        }
-      ],
-      "rarity_table": [
-        { "rarity": "common", "weight": 0.50 },
-        { "rarity": "uncommon", "weight": 0.30 },
-        { "rarity": "rare", "weight": 0.14 },
-        { "rarity": "epic", "weight": 0.05 },
-        { "rarity": "legendary", "weight": 0.01 }
-      ]
+      "model_id": "sv_five_card",
+      "slot_overrides": {
+        "parallel": [
+          { "rarity": "common", "weight": 0.52 },
+          { "rarity": "uncommon", "weight": 0.32 },
+          { "rarity": "rare", "weight": 0.13 },
+          { "rarity": "double_rare", "weight": 0.025 },
+          { "rarity": "illustration_rare", "weight": 0.005 }
+        ],
+        "hit": [
+          { "rarity": "rare", "weight": 0.81 },
+          { "rarity": "double_rare", "weight": 0.12 },
+          { "rarity": "ultra_rare", "weight": 0.045 },
+          { "rarity": "illustration_rare", "weight": 0.018 },
+          { "rarity": "special_illustration_rare", "weight": 0.005 },
+          { "rarity": "hyper_rare", "weight": 0.002 }
+        ]
+      }
     }
   },
   {
@@ -131,57 +67,25 @@
     "pack": {
       "id": "chase_pack",
       "name": "Chase Pack",
-      "card_count": 5,
       "set_id": "genesis",
-      "slot_table": [
-        {
-          "slot": "base_1",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "base_2",
-          "label": "base",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
-        },
-        {
-          "slot": "uncommon",
-          "label": "uncommon",
-          "treatment": "base",
-          "rarity_table": [{ "rarity": "uncommon", "weight": 1.0 }]
-        },
-        {
-          "slot": "parallel",
-          "label": "parallel",
-          "treatment": "reverse",
-          "rarity_table": [
-            { "rarity": "common", "weight": 0.40 },
-            { "rarity": "uncommon", "weight": 0.32 },
-            { "rarity": "rare", "weight": 0.21 },
-            { "rarity": "epic", "weight": 0.06 },
-            { "rarity": "legendary", "weight": 0.01 }
-          ]
-        },
-        {
-          "slot": "hit",
-          "label": "hit",
-          "treatment": "holo",
-          "rarity_table": [
-            { "rarity": "rare", "weight": 0.72 },
-            { "rarity": "epic", "weight": 0.22 },
-            { "rarity": "legendary", "weight": 0.06 }
-          ]
-        }
-      ],
-      "rarity_table": [
-        { "rarity": "common", "weight": 0.42 },
-        { "rarity": "uncommon", "weight": 0.32 },
-        { "rarity": "rare", "weight": 0.17 },
-        { "rarity": "epic", "weight": 0.07 },
-        { "rarity": "legendary", "weight": 0.02 }
-      ]
+      "model_id": "sv_five_card",
+      "slot_overrides": {
+        "parallel": [
+          { "rarity": "common", "weight": 0.45 },
+          { "rarity": "uncommon", "weight": 0.32 },
+          { "rarity": "rare", "weight": 0.17 },
+          { "rarity": "double_rare", "weight": 0.045 },
+          { "rarity": "illustration_rare", "weight": 0.015 }
+        ],
+        "hit": [
+          { "rarity": "rare", "weight": 0.70 },
+          { "rarity": "double_rare", "weight": 0.18 },
+          { "rarity": "ultra_rare", "weight": 0.075 },
+          { "rarity": "illustration_rare", "weight": 0.030 },
+          { "rarity": "special_illustration_rare", "weight": 0.010 },
+          { "rarity": "hyper_rare", "weight": 0.005 }
+        ]
+      }
     }
   }
 ]

@@ -70,7 +70,7 @@ Slot meanings:
 
 Model this as a compressed Scarlet & Violet-inspired structure. Current Pokemon booster packs are larger, but the key feel to preserve is that the early cards are low suspense and the final foil/hit slots carry the reveal tension.
 
-Use `slot_table` in pack data when available. Roll each slot from its own rarity table, store generated slot metadata on each card, and keep the `hit` slot last in trick reveal order. A flat pack-wide `rarity_table` may remain as fallback data only.
+Use `pack_models.json` for shared slot structure and `rarities.json` for rarity labels, symbols, tiers, and color roles. Boxes should reference a pack model and override slot odds only where the product theme differs. Roll each slot from its own rarity table, store generated slot metadata on each card, and keep the `hit` slot last in trick reveal order. A flat pack-wide `rarity_table` may remain as fallback data only.
 
 ## Pack Selection
 
@@ -135,7 +135,7 @@ Use variable timing.
 base card: short hold
 sparkle slot: medium hold
 rare or better: long hold
-legendary/chase: longest hold plus stronger border or pulse
+SIR / Hyper Rare chase: longest hold plus stronger border or pulse
 ```
 
 Avoid making every card use the same reveal tempo.
@@ -145,7 +145,7 @@ Drag motion should use weighted progress rather than linear position:
 ```text
 low rarity: light, quick slide
 rare: slight resistance before border and rarity become readable
-epic/legendary: stronger resistance, border peek first, rarity/value/name revealed in stages
+Ultra Rare and above: stronger resistance, border peek first, rarity/value/name revealed in stages
 ```
 
 The goal is for the player to feel a hit before the full card is readable. Border color, pulse, and staged text reveal are valid Phase 1 signals.
@@ -184,7 +184,8 @@ back/trick open:
 The opening interaction should keep one clear next action.
 
 ```text
-OPEN STYLE -> RAW / TRICK
+front side -> top tear direct reveal
+back side -> seam tear card trick
 DRAG -> tear wrapper
 DRAG -> slide next card right or flip stack
 SELL / KEEP -> after all cards are revealed

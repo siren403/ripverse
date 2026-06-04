@@ -14,9 +14,10 @@
   { "id": "gen_r_002", "name": "Short Print", "set_id": "genesis", "rarity": "rare", "value_min": 30, "value_max": 80 },
   { "id": "gen_r_003", "name": "Market Spark", "set_id": "genesis", "rarity": "rare", "value_min": 30, "value_max": 80 },
 
-  { "id": "gen_e_001", "name": "Purple Chase", "set_id": "genesis", "rarity": "epic", "value_min": 100, "value_max": 250 },
-  { "id": "gen_e_002", "name": "Case Hit", "set_id": "genesis", "rarity": "epic", "value_min": 100, "value_max": 250 },
+  { "id": "gen_rr_001", "name": "Purple Chase", "set_id": "genesis", "rarity": "double_rare", "value_min": 80, "value_max": 180 },
+  { "id": "gen_ur_001", "name": "Case Hit", "set_id": "genesis", "rarity": "ultra_rare", "value_min": 140, "value_max": 320 },
 
-  { "id": "gen_l_001", "name": "Golden Rip", "set_id": "genesis", "rarity": "legendary", "value_min": 500, "value_max": 1500 },
-  { "id": "gen_l_002", "name": "One More Box", "set_id": "genesis", "rarity": "legendary", "value_min": 500, "value_max": 1500 }
+  { "id": "gen_ir_001", "name": "Golden Rip", "set_id": "genesis", "rarity": "illustration_rare", "value_min": 260, "value_max": 700 },
+  { "id": "gen_sir_001", "name": "One More Box", "set_id": "genesis", "rarity": "special_illustration_rare", "value_min": 600, "value_max": 1500 },
+  { "id": "gen_hr_001", "name": "Final Gold", "set_id": "genesis", "rarity": "hyper_rare", "value_min": 900, "value_max": 2200 }
 ]

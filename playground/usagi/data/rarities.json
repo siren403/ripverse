@@ -1,0 +1,10 @@
+[
+  { "id": "common", "label": "Common", "symbol": "C", "tier": 1, "color_role": "common" },
+  { "id": "uncommon", "label": "Uncommon", "symbol": "U", "tier": 2, "color_role": "uncommon" },
+  { "id": "rare", "label": "Rare", "symbol": "R", "tier": 3, "color_role": "rare" },
+  { "id": "double_rare", "label": "Double Rare", "symbol": "RR", "tier": 4, "color_role": "rare" },
+  { "id": "ultra_rare", "label": "Ultra Rare", "symbol": "UR", "tier": 5, "color_role": "epic" },
+  { "id": "illustration_rare", "label": "Illustration Rare", "symbol": "IR", "tier": 6, "color_role": "epic" },
+  { "id": "special_illustration_rare", "label": "Special Illustration Rare", "symbol": "SIR", "tier": 7, "color_role": "legendary" },
+  { "id": "hyper_rare", "label": "Hyper Rare", "symbol": "HR", "tier": 8, "color_role": "legendary" }
+]

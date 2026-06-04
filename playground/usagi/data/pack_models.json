@@ -1,0 +1,51 @@
+[
+  {
+    "id": "sv_five_card",
+    "name": "SV Five Card",
+    "card_count": 5,
+    "slots": [
+      {
+        "slot": "base_1",
+        "label": "base",
+        "treatment": "base",
+        "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
+      },
+      {
+        "slot": "base_2",
+        "label": "base",
+        "treatment": "base",
+        "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
+      },
+      {
+        "slot": "base_3",
+        "label": "base",
+        "treatment": "base",
+        "rarity_table": [{ "rarity": "common", "weight": 1.0 }]
+      },
+      {
+        "slot": "parallel",
+        "label": "parallel",
+        "treatment": "reverse",
+        "rarity_table": [
+          { "rarity": "common", "weight": 0.58 },
+          { "rarity": "uncommon", "weight": 0.30 },
+          { "rarity": "rare", "weight": 0.10 },
+          { "rarity": "double_rare", "weight": 0.02 }
+        ]
+      },
+      {
+        "slot": "hit",
+        "label": "hit",
+        "treatment": "holo",
+        "rarity_table": [
+          { "rarity": "rare", "weight": 0.86 },
+          { "rarity": "double_rare", "weight": 0.09 },
+          { "rarity": "ultra_rare", "weight": 0.035 },
+          { "rarity": "illustration_rare", "weight": 0.012 },
+          { "rarity": "special_illustration_rare", "weight": 0.002 },
+          { "rarity": "hyper_rare", "weight": 0.001 }
+        ]
+      }
+    ]
+  }
+]

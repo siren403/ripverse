@@ -1,5 +1,7 @@
 local boxes = usagi.read_json("boxes.json")
 local cards = usagi.read_json("cards.json")
+local rarities = usagi.read_json("rarities.json")
+local pack_models = usagi.read_json("pack_models.json")
 
 local COLOR = {
   BG = gfx.COLOR_BLACK,
@@ -95,6 +97,8 @@ local update_reveal
 local generate_pack
 local generate_slot_pack
 local generate_flat_pack
+local pack_model_by_id
+local slot_rarity_table
 local build_reveal_order
 local strongest_card_index
 local hit_card_index
@@ -103,6 +107,9 @@ local cards_by_rarity
 local roll_value
 local total_value
 local rarity_score
+local rarity_info
+local rarity_color
+local rarity_label
 local sell_all
 local keep_all
 local after_pack_decision
@@ -583,19 +590,20 @@ end
 
 function generate_pack(box)
   local pack = box.pack
+  local model = pack_model_by_id(pack.model_id)
 
-  if pack.slot_table ~= nil then
-    return generate_slot_pack(pack)
+  if model ~= nil then
+    return generate_slot_pack(pack, model)
   end
 
   return generate_flat_pack(pack)
 end
 
-function generate_slot_pack(pack)
+function generate_slot_pack(pack, model)
   local result = {}
 
-  for i, slot in ipairs(pack.slot_table) do
-    local rarity = roll_rarity(slot.rarity_table)
+  for i, slot in ipairs(model.slots) do
+    local rarity = roll_rarity(slot_rarity_table(pack, slot))
     local pool = cards_by_rarity(rarity)
     local template = pool[math.random(1, #pool)]
     local value = roll_value(template.value_min, template.value_max)
@@ -613,6 +621,24 @@ function generate_slot_pack(pack)
   end
 
   return result
+end
+
+function pack_model_by_id(model_id)
+  for _, model in ipairs(pack_models) do
+    if model.id == model_id then
+      return model
+    end
+  end
+
+  return pack_models[1]
+end
+
+function slot_rarity_table(pack, slot)
+  if pack.slot_overrides ~= nil and pack.slot_overrides[slot.slot] ~= nil then
+    return pack.slot_overrides[slot.slot]
+  end
+
+  return slot.rarity_table
 end
 
 function generate_flat_pack(pack)
@@ -642,23 +668,16 @@ end
 function build_reveal_order(card_list, opening_style)
   local result = {}
 
-  if opening_style ~= "trick" then
-    for i = 1, #card_list do
-      table.insert(result, i)
-    end
+  for i = 1, #card_list do
+    table.insert(result, i)
+  end
 
+  if opening_style ~= "trick" then
     return result
   end
 
   local hit_index = hit_card_index(card_list)
-  local trick_order = { 2, 3, 1, 4, 5 }
-
-  for _, index in ipairs(trick_order) do
-    if index <= #card_list and index ~= hit_index then
-      table.insert(result, index)
-    end
-  end
-
+  table.remove(result, hit_index)
   table.insert(result, hit_index)
   return result
 end
@@ -731,17 +750,29 @@ end
 function rarity_score(card)
   if card == nil then
     return 1
-  elseif card.rarity == "uncommon" then
-    return 2
-  elseif card.rarity == "rare" then
-    return 3
-  elseif card.rarity == "epic" then
-    return 4
-  elseif card.rarity == "legendary" then
-    return 5
   end
 
-  return 1
+  return rarity_info(card.rarity).tier or 1
+end
+
+function rarity_info(rarity)
+  for _, info in ipairs(rarities) do
+    if info.id == rarity then
+      return info
+    end
+  end
+
+  return { id = rarity, label = rarity, symbol = "?", tier = 1, color_role = "common" }
+end
+
+function rarity_color(rarity)
+  local role = rarity_info(rarity).color_role
+  return RARITY_COLORS[role] or COLOR.MUTED
+end
+
+function rarity_label(rarity)
+  local info = rarity_info(rarity)
+  return info.symbol .. " " .. info.label
 end
 
 function sell_all()
@@ -1075,14 +1106,14 @@ function draw_reveal_cards()
 end
 
 function draw_card(card, x, y, is_current)
-  local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
+  local color = rarity_color(card.rarity)
   local treatment = card.treatment or "base"
-  local label = card.rarity
+  local label = rarity_label(card.rarity)
 
   if treatment == "reverse" then
-    label = "rev " .. card.rarity
+    label = "rev " .. label
   elseif treatment == "holo" then
-    label = "holo " .. card.rarity
+    label = "holo " .. label
   end
 
   gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
@@ -1120,9 +1151,9 @@ function draw_inventory()
     for i = 1, max_rows do
       local card = State.inventory[#State.inventory - i + 1]
       local y = 62 + (i - 1) * 12
-      local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
+      local color = rarity_color(card.rarity)
       draw_fit_text(card.name, 24, y, 112, COLOR.TEXT)
-      gfx.text(card.rarity, 148, y, color)
+      draw_fit_text(rarity_info(card.rarity).symbol, 148, y, 32, color)
       gfx.text("$" .. card.base_value, 242, y, COLOR.MONEY)
     end
   end
