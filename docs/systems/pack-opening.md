@@ -103,7 +103,7 @@ Back-facing reorder before reveal.
 wrapper -> stack back -> move cards -> flip -> reveal low cards -> sparkle -> hit -> result
 ```
 
-For the five-card Ripverse pack, the implementation can keep the hit slot last and move one low-value card earlier as the visible "trick" action.
+For the five-card Ripverse pack, the implementation can keep the hit slot last and show two back-facing cards moving as the visible "trick" action.
 
 Example:
 
@@ -165,12 +165,13 @@ Phase 1 baseline:
 ```text
 front open:
 - player sees the front of the wrapper
-- open by tearing the top horizontal tear line left-to-right or right-to-left
+- open by tearing the top horizontal tear line in one chosen direction
 - after extraction, reveal cards with the shared face-up slide flow
 
 back/trick open:
-- player opens the back seam
-- cards may be handled back-facing for reorder/card trick
+- player opens the back seam with a vertical drag down the center seam
+- after the wrapper is open, two cards are moved in one automatic card-trick sequence
+- moved cards stay visible as an overlapped stack instead of disappearing
 - after reorder, flip the stack face-up
 - reveal cards with the same face-up slide flow as front open
 ```
