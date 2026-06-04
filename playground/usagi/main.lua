@@ -41,10 +41,15 @@ local STACK_CARD_X = 118
 local STACK_CARD_Y = 70
 local DISCARD_CARD_X = 38
 local DISCARD_CARD_Y = 70
-local DRAG_REVEAL_X = 88
 local TEAR_DISTANCE = 34
 local CARD_PAD_X = 5
 local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
+local SHOP_ITEM_W = 72
+local SHOP_ITEM_H = 78
+local SHOP_CENTER_X = 124
+local SHOP_Y = 58
+local SHOP_GAP = 22
+local SHOP_DRAG_THRESHOLD = 16
 local BUTTON_W = 126
 local BUTTON_H = 16
 local BUTTON_GAP = 16
@@ -56,8 +61,6 @@ local TWO_BUTTONS_X = math.floor((SCREEN_W - BUTTON_W * 2 - BUTTON_GAP) / 2)
 local ONE_BUTTON_X = math.floor((SCREEN_W - BUTTON_W) / 2)
 
 local HITBOX = {
-  box_buy = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
-  box_inventory = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
   pack_raw = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
   pack_trick = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
   result_sell = { x = TWO_BUTTONS_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
@@ -68,8 +71,10 @@ local HITBOX = {
 local advance_primary
 local advance_secondary
 local handle_mouse_click
+local update_shop_drag
 local update_pack_drag
 local buy_box
+local selected_box
 local start_pack
 local advance_pack_reveal
 local update_reveal
@@ -80,6 +85,7 @@ local roll_rarity
 local cards_by_rarity
 local roll_value
 local total_value
+local rarity_score
 local sell_all
 local keep_all
 local after_pack_decision
@@ -87,6 +93,8 @@ local toggle_inventory
 local next_screen_after_inventory
 local draw_header
 local draw_box_shop
+local draw_box_carousel
+local draw_box_card
 local draw_box_opening
 local draw_pack_select
 local draw_pack_reveal
@@ -107,6 +115,8 @@ local draw_button
 local draw_button_group
 local draw_right_text
 local draw_fit_text
+local drag_progress
+local weighted_drag_progress
 local point_in_rect
 local fit_text
 
@@ -123,6 +133,9 @@ function _init()
     screen = "box_shop",
     money = 300,
     inventory = {},
+    selected_box_index = 1,
+    shop_offset = 0,
+    shop_drag = nil,
     packs_remaining = 0,
     current_box = nil,
     pack_cards = {},
@@ -137,12 +150,13 @@ function _init()
     tear_progress = 0,
     card_drag_x = 0,
     card_drag_y = 0,
+    card_drag_progress = 0,
     box_count_opened = 0,
     pack_count_opened = 0,
     cards_seen = 0,
     last_pack_value = 0,
     transition_timer = 0,
-    message = "Buy a box.",
+    message = "Drag packs. Tap to buy.",
   }
 end
 
@@ -157,6 +171,10 @@ function _update(dt)
 
   if input.key_pressed(input.KEY_I) and State.screen ~= "pack_reveal" then
     toggle_inventory()
+  end
+
+  if State.screen == "box_shop" then
+    update_shop_drag()
   end
 
   if State.screen == "pack_reveal" then
@@ -201,7 +219,7 @@ end
 
 function advance_primary()
   if State.screen == "box_shop" then
-    buy_box(boxes[1])
+    buy_box(selected_box())
   elseif State.screen == "pack_select" then
     start_pack("raw")
   elseif State.screen == "pack_reveal" then
@@ -231,11 +249,7 @@ function handle_mouse_click()
   end
 
   if State.screen == "box_shop" then
-    if point_in_rect(mx, my, HITBOX.box_buy) then
-      buy_box(boxes[1])
-    elseif point_in_rect(mx, my, HITBOX.box_inventory) then
-      toggle_inventory()
-    end
+    return
   elseif State.screen == "pack_select" then
     if point_in_rect(mx, my, HITBOX.pack_raw) then
       start_pack("raw")
@@ -252,6 +266,49 @@ function handle_mouse_click()
     if point_in_rect(mx, my, HITBOX.inventory_back) then
       State.screen = next_screen_after_inventory()
     end
+  end
+end
+
+function update_shop_drag()
+  local mx, my = input.mouse()
+  local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
+  local carousel_rect = { x = 0, y = 48, w = SCREEN_W, h = 92 }
+
+  if in_bounds and input.mouse_pressed(input.MOUSE_LEFT) and point_in_rect(mx, my, carousel_rect) then
+    State.shop_drag = {
+      start_x = mx,
+      last_x = mx,
+      start_offset = State.shop_offset,
+      moved = false,
+    }
+  end
+
+  if State.shop_drag and input.mouse_held(input.MOUSE_LEFT) then
+    local dx = mx - State.shop_drag.start_x
+    State.shop_drag.last_x = mx
+    State.shop_offset = State.shop_drag.start_offset + dx
+    if math.abs(dx) >= SHOP_DRAG_THRESHOLD then
+      State.shop_drag.moved = true
+    end
+  elseif State.shop_drag and input.mouse_released(input.MOUSE_LEFT) then
+    local dx = mx - State.shop_drag.start_x
+
+    if math.abs(dx) >= SHOP_DRAG_THRESHOLD then
+      if dx < 0 then
+        State.selected_box_index = math.min(#boxes, State.selected_box_index + 1)
+      else
+        State.selected_box_index = math.max(1, State.selected_box_index - 1)
+      end
+      State.message = "Pick a box."
+    elseif in_bounds and point_in_rect(mx, my, carousel_rect) then
+      buy_box(selected_box())
+    end
+
+    State.shop_offset = 0
+    State.shop_drag = nil
+  elseif State.shop_drag and not input.mouse_held(input.MOUSE_LEFT) then
+    State.shop_offset = 0
+    State.shop_drag = nil
   end
 end
 
@@ -294,13 +351,16 @@ function update_pack_drag()
     if State.drag.kind == "tear" then
       State.tear_progress = math.max(0, math.min(1, (my - State.drag.start_y) / TEAR_DISTANCE))
     elseif State.drag.kind == "trick" then
-      State.card_drag_x = STACK_CARD_X + math.min(0, mx - State.drag.start_x)
+      State.card_drag_progress = drag_progress(State.drag.start_x - mx, 54)
+      State.card_drag_x = STACK_CARD_X - math.floor(weighted_drag_progress(State.card_drag_progress, nil) * 60)
       State.card_drag_y = STACK_CARD_Y
     elseif State.drag.kind == "card" then
-      State.card_drag_x = STACK_CARD_X + math.min(0, mx - State.drag.start_x)
+      State.card_drag_progress = weighted_drag_progress(drag_progress(State.drag.start_x - mx, 58), State.drag_card)
+      State.card_drag_x = STACK_CARD_X - math.floor(State.card_drag_progress * 72)
       State.card_drag_y = STACK_CARD_Y
     elseif State.drag.kind == "finish" then
-      State.card_drag_x = DISCARD_CARD_X + math.min(0, mx - State.drag.start_x)
+      State.card_drag_progress = drag_progress(State.drag.start_x - mx, 46)
+      State.card_drag_x = DISCARD_CARD_X - math.floor(State.card_drag_progress * 42)
       State.card_drag_y = DISCARD_CARD_Y
     end
   elseif State.drag then
@@ -311,15 +371,15 @@ function update_pack_drag()
         State.tear_progress = 0
       end
     elseif State.drag.kind == "trick" then
-      if State.card_drag_x <= DRAG_REVEAL_X then
+      if State.card_drag_progress >= 0.82 then
         advance_pack_reveal()
       end
     elseif State.drag.kind == "card" then
-      if State.card_drag_x <= DRAG_REVEAL_X then
+      if State.card_drag_progress >= 0.86 then
         advance_pack_reveal()
       end
     elseif State.drag.kind == "finish" then
-      if State.card_drag_x <= 10 then
+      if State.card_drag_progress >= 0.82 then
         advance_pack_reveal()
       end
     end
@@ -328,6 +388,7 @@ function update_pack_drag()
     State.drag_card = nil
     State.card_drag_x = 0
     State.card_drag_y = 0
+    State.card_drag_progress = 0
   end
 end
 
@@ -344,6 +405,10 @@ function buy_box(box)
   State.transition_timer = 0
   State.message = "Opening box..."
   State.screen = "box_opening"
+end
+
+function selected_box()
+  return boxes[State.selected_box_index] or boxes[1]
 end
 
 function start_pack(opening_style)
@@ -370,6 +435,7 @@ function start_pack(opening_style)
   State.tear_progress = 0
   State.card_drag_x = 0
   State.card_drag_y = 0
+  State.card_drag_progress = 0
   State.last_pack_value = total_value(State.pack_cards)
   if opening_style == "trick" then
     State.message = "Back-facing trick."
@@ -474,18 +540,7 @@ function strongest_card_index(card_list)
   local best_score = -1
 
   for i, card in ipairs(card_list) do
-    local rarity_score = 1
-    if card.rarity == "uncommon" then
-      rarity_score = 2
-    elseif card.rarity == "rare" then
-      rarity_score = 3
-    elseif card.rarity == "epic" then
-      rarity_score = 4
-    elseif card.rarity == "legendary" then
-      rarity_score = 5
-    end
-
-    local score = rarity_score * 10000 + card.base_value
+    local score = rarity_score(card) * 10000 + card.base_value
     if score >= best_score then
       best_score = score
       best_index = i
@@ -533,6 +588,22 @@ function total_value(card_list)
   end
 
   return value
+end
+
+function rarity_score(card)
+  if card == nil then
+    return 1
+  elseif card.rarity == "uncommon" then
+    return 2
+  elseif card.rarity == "rare" then
+    return 3
+  elseif card.rarity == "epic" then
+    return 4
+  elseif card.rarity == "legendary" then
+    return 5
+  end
+
+  return 1
 end
 
 function sell_all()
@@ -596,15 +667,42 @@ function draw_header()
 end
 
 function draw_box_shop()
-  local box = boxes[1]
+  local box = selected_box()
 
-  draw_panel(PANEL_MAIN.x, PANEL_MAIN.y, PANEL_MAIN.w, PANEL_MAIN.h)
-  gfx.text("BOX SHOP", 32, 48, COLOR.TEXT)
-  gfx.text(box.name, 32, 68, COLOR.MONEY)
-  gfx.text("$" .. box.price .. " / " .. box.pack_count .. " packs", 32, 84, COLOR.MUTED)
-  gfx.text("Genesis / 5 cards each", 32, 100, COLOR.MUTED)
+  gfx.text("BOX SHOP", 16, 36, COLOR.TEXT)
+  draw_right_text("$" .. box.price, 304, 36, COLOR.MONEY)
+  draw_box_carousel()
+  gfx.text(box.pack_count .. " packs / 5 cards", 96, 144, COLOR.MUTED)
+end
 
-  draw_button_group(BUTTON_ROW_Y, "BUY", COLOR.GOOD, "CARDS", COLOR.RARE)
+function draw_box_carousel()
+  for i, box in ipairs(boxes) do
+    local offset = i - State.selected_box_index
+    local drag_offset = State.shop_offset
+    local x = SHOP_CENTER_X + offset * (SHOP_ITEM_W + SHOP_GAP) + drag_offset
+    local y = SHOP_Y + math.abs(offset) * 5
+    local selected = i == State.selected_box_index
+    draw_box_card(box, x, y, selected)
+  end
+end
+
+function draw_box_card(box, x, y, selected)
+  local color = COLOR.RARE
+  if box.id == "spark_box" then
+    color = COLOR.EPIC
+  elseif box.id == "chase_box" then
+    color = COLOR.LEGENDARY
+  end
+
+  gfx.rect_fill(x, y, SHOP_ITEM_W, SHOP_ITEM_H, COLOR.PANEL)
+  gfx.rect_ex(x, y, SHOP_ITEM_W, SHOP_ITEM_H, selected and 3 or 1, color)
+  gfx.text("RIP", x + 26, y + 12, COLOR.TEXT)
+  draw_fit_text(box.name, x + 7, y + 34, SHOP_ITEM_W - 14, color)
+  gfx.text("$" .. box.price, x + 12, y + 56, COLOR.MONEY)
+
+  if selected then
+    gfx.text("TAP BUY", x + 13, y + 68, COLOR.MUTED)
+  end
 end
 
 function draw_box_opening()
@@ -663,13 +761,24 @@ function draw_pack_wrapper()
     color = COLOR.LEGENDARY
   end
 
-  gfx.rect_fill(126, 58 + tear_y, 68, 88 - tear_y, COLOR.PANEL)
-  gfx.rect_ex(126, 58 + tear_y, 68, 88 - tear_y, 3, color)
-  gfx.rect_fill(126, 58, 68, math.max(8, tear_y), COLOR.PANEL_DARK)
-  gfx.rect(126, 58, 68, math.max(8, tear_y), COLOR.MUTED)
-  gfx.text("GENESIS", 142, 82 + math.floor(tear_y / 2), COLOR.TEXT)
-  gfx.text("PACK", 150, 100 + math.floor(tear_y / 2), color)
-  gfx.text("PULL DOWN", 128, 128, COLOR.MUTED)
+  if State.opening_style == "trick" then
+    local seam_w = math.max(2, math.floor(State.tear_progress * 18))
+    gfx.rect_fill(126, 58, 68, 88, COLOR.PANEL_DARK)
+    gfx.rect_ex(126, 58, 68, 88, 3, color)
+    gfx.rect_fill(160 - math.floor(seam_w / 2), 58, seam_w, 88, COLOR.PANEL)
+    gfx.rect(158, 62, 4, 80, COLOR.MUTED)
+    gfx.text("BACK", 146, 82, COLOR.TEXT)
+    gfx.text("SEAM", 144, 102, color)
+    gfx.text("PULL DOWN", 128, 128, COLOR.MUTED)
+  else
+    gfx.rect_fill(126, 58 + tear_y, 68, 88 - tear_y, COLOR.PANEL)
+    gfx.rect_ex(126, 58 + tear_y, 68, 88 - tear_y, 3, color)
+    gfx.rect_fill(126, 58, 68, math.max(8, tear_y), COLOR.PANEL_DARK)
+    gfx.rect(126, 72, 68, 2, COLOR.MUTED)
+    gfx.text("GENESIS", 142, 82 + math.floor(tear_y / 2), COLOR.TEXT)
+    gfx.text("PACK", 150, 100 + math.floor(tear_y / 2), color)
+    gfx.text("TOP TEAR", 132, 128, COLOR.MUTED)
+  end
 end
 
 function draw_pack_stack()
@@ -691,11 +800,37 @@ function draw_pack_stack()
 end
 
 function draw_drag_card(card, x, y)
-  local peek = x <= STACK_CARD_X - 12
-  if peek then
-    draw_card(card, x, y, true)
-  else
+  local progress = State.card_drag_progress
+  local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
+  local score = rarity_score(card)
+  local pulse = math.floor(State.reveal_timer * 14) % 2
+
+  if progress < 0.16 then
     draw_card_back(x, y)
+    return
+  end
+
+  gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
+  gfx.rect_ex(x, y, CARD_W, CARD_H, score >= 3 and 3 or 1, color)
+
+  if score >= 4 and pulse == 1 then
+    gfx.rect(x - 2, y - 2, CARD_W + 4, CARD_H + 4, color)
+  end
+
+  if progress >= 0.42 then
+    draw_fit_text(card.rarity, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
+  else
+    gfx.text("???", x + 14, y + 31, color)
+  end
+
+  if progress >= 0.68 then
+    draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
+  end
+
+  if progress >= 0.82 then
+    draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
+  else
+    gfx.text("PEEK", x + 11, y + 9, COLOR.MUTED)
   end
 end
 
@@ -785,7 +920,7 @@ end
 
 function footer_hint()
   if State.screen == "box_shop" then
-    return "enter buy | space cards"
+    return "drag packs | space cards"
   elseif State.screen == "pack_select" then
     return "enter raw | space trick"
   elseif State.screen == "pack_reveal" then
@@ -825,6 +960,30 @@ end
 
 function draw_fit_text(text, x, y, max_w, color)
   gfx.text(fit_text(text, max_w), x, y, color)
+end
+
+function drag_progress(distance, full_distance)
+  local progress = distance / full_distance
+  return math.max(0, math.min(1, progress))
+end
+
+function weighted_drag_progress(raw, card)
+  local score = rarity_score(card)
+
+  if score <= 2 then
+    return raw
+  end
+
+  if raw < 0.18 then
+    return raw * 0.72
+  elseif raw < 0.46 then
+    return 0.13 + (raw - 0.18) * 0.58
+  elseif raw < 0.74 then
+    return 0.29 + (raw - 0.46) * (score >= 4 and 0.48 or 0.62)
+  end
+
+  local finish = 0.46 + (raw - 0.74) * (score >= 4 and 2.45 or 2.10)
+  return math.max(0, math.min(1, finish))
 end
 
 function point_in_rect(px, py, rect)

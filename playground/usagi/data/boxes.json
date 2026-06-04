@@ -18,5 +18,45 @@
         { "rarity": "legendary", "weight": 0.01 }
       ]
     }
+  },
+  {
+    "id": "spark_box",
+    "name": "Spark Box",
+    "price": 140,
+    "pack_count": 3,
+    "set_id": "genesis",
+    "pack": {
+      "id": "spark_pack",
+      "name": "Spark Pack",
+      "card_count": 5,
+      "set_id": "genesis",
+      "rarity_table": [
+        { "rarity": "common", "weight": 0.50 },
+        { "rarity": "uncommon", "weight": 0.30 },
+        { "rarity": "rare", "weight": 0.14 },
+        { "rarity": "epic", "weight": 0.05 },
+        { "rarity": "legendary", "weight": 0.01 }
+      ]
+    }
+  },
+  {
+    "id": "chase_box",
+    "name": "Chase Box",
+    "price": 220,
+    "pack_count": 2,
+    "set_id": "genesis",
+    "pack": {
+      "id": "chase_pack",
+      "name": "Chase Pack",
+      "card_count": 5,
+      "set_id": "genesis",
+      "rarity_table": [
+        { "rarity": "common", "weight": 0.42 },
+        { "rarity": "uncommon", "weight": 0.32 },
+        { "rarity": "rare", "weight": 0.17 },
+        { "rarity": "epic", "weight": 0.07 },
+        { "rarity": "legendary", "weight": 0.02 }
+      ]
+    }
   }
 ]

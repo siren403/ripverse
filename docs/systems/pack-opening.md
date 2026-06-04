@@ -69,6 +69,20 @@ Slot meanings:
 
 The current economy can keep the existing rarity roll for each card, but reveal presentation should treat the strongest or configured hit card as the pack climax.
 
+## Pack Selection
+
+The shop should feel like choosing a physical pack or box, not pressing a form button.
+
+Phase 1 can use a horizontal carousel:
+
+```text
+drag left/right -> change focused box
+tap focused box -> buy it
+keyboard enter -> buy focused box fallback
+```
+
+Multiple sample boxes are acceptable for feel validation even before the economy is final.
+
 ## Opening Techniques
 
 ### Raw Rip
@@ -122,6 +136,27 @@ legendary/chase: longest hold plus stronger border or pulse
 ```
 
 Avoid making every card use the same reveal tempo.
+
+Drag motion should use weighted progress rather than linear position:
+
+```text
+low rarity: light, quick slide
+rare: slight resistance before border and rarity become readable
+epic/legendary: stronger resistance, border peek first, rarity/value/name revealed in stages
+```
+
+The goal is for the player to feel a hit before the full card is readable. Border color, pulse, and staged text reveal are valid Phase 1 signals.
+
+## Wrapper Motions
+
+Represent more than one physical opening pattern:
+
+```text
+front top tear: horizontal tear line, top strip separates
+back seam tear: vertical center seam opens from the back
+```
+
+These can share input mechanics in the prototype while using distinct visuals.
 
 ## Player Controls
 
