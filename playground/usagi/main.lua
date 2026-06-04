@@ -49,6 +49,7 @@ local SHOP_CENTER_X = 124
 local SHOP_Y = 58
 local SHOP_GAP = 22
 local SHOP_DRAG_THRESHOLD = 16
+local SHOP_ITEM_ROT_STEP = 0.11
 local BUTTON_W = 126
 local BUTTON_H = 16
 local BUTTON_GAP = 16
@@ -95,6 +96,11 @@ local draw_header
 local draw_box_shop
 local draw_box_carousel
 local draw_box_card
+local draw_rotated_pack_card
+local draw_rotated_rect_fill
+local draw_rotated_rect
+local rotated_rect_points
+local rotate_point
 local draw_box_opening
 local draw_pack_select
 local draw_pack_reveal
@@ -691,11 +697,14 @@ function draw_box_carousel()
     local x = SHOP_CENTER_X + offset * (SHOP_ITEM_W + SHOP_GAP) + drag_offset
     local y = SHOP_Y + math.abs(offset) * 5
     local selected = i == State.selected_box_index
-    draw_box_card(box, x, y, selected)
+    local drag_angle = (drag_offset / (SHOP_ITEM_W + SHOP_GAP)) * SHOP_ITEM_ROT_STEP
+    local idle_angle = math.sin(usagi.elapsed * 1.4 + i * 0.8) * 0.015
+    local angle = offset * SHOP_ITEM_ROT_STEP + drag_angle + idle_angle
+    draw_box_card(box, x, y, selected, angle)
   end
 end
 
-function draw_box_card(box, x, y, selected)
+function draw_box_card(box, x, y, selected, angle)
   local color = COLOR.RARE
   if box.id == "spark_box" then
     color = COLOR.EPIC
@@ -703,8 +712,7 @@ function draw_box_card(box, x, y, selected)
     color = COLOR.LEGENDARY
   end
 
-  gfx.rect_fill(x, y, SHOP_ITEM_W, SHOP_ITEM_H, COLOR.PANEL)
-  gfx.rect_ex(x, y, SHOP_ITEM_W, SHOP_ITEM_H, selected and 3 or 1, color)
+  draw_rotated_pack_card(x, y, SHOP_ITEM_W, SHOP_ITEM_H, angle, selected, color)
   gfx.text("RIP", x + 26, y + 12, COLOR.TEXT)
   draw_fit_text(box.name, x + 7, y + 34, SHOP_ITEM_W - 14, color)
   gfx.text("$" .. box.price, x + 12, y + 56, COLOR.MONEY)
@@ -712,6 +720,47 @@ function draw_box_card(box, x, y, selected)
   if selected then
     gfx.text("TAP BUY", x + 13, y + 68, COLOR.MUTED)
   end
+end
+
+function draw_rotated_pack_card(x, y, w, h, angle, selected, color)
+  draw_rotated_rect_fill(x, y, w, h, angle, COLOR.PANEL)
+  draw_rotated_rect(x, y, w, h, angle, selected and 3 or 1, color)
+
+  local band_y = y + 12
+  draw_rotated_rect_fill(x + 6, band_y, w - 12, 9, angle, COLOR.PANEL_DARK)
+  draw_rotated_rect(x + 6, band_y, w - 12, 9, angle, 1, color)
+end
+
+function draw_rotated_rect_fill(x, y, w, h, angle, color)
+  local x1, y1, x2, y2, x3, y3, x4, y4 = rotated_rect_points(x, y, w, h, angle)
+  gfx.tri_fill(x1, y1, x2, y2, x3, y3, color)
+  gfx.tri_fill(x1, y1, x3, y3, x4, y4, color)
+end
+
+function draw_rotated_rect(x, y, w, h, angle, thickness, color)
+  local x1, y1, x2, y2, x3, y3, x4, y4 = rotated_rect_points(x, y, w, h, angle)
+  gfx.line_ex(x1, y1, x2, y2, thickness, color)
+  gfx.line_ex(x2, y2, x3, y3, thickness, color)
+  gfx.line_ex(x3, y3, x4, y4, thickness, color)
+  gfx.line_ex(x4, y4, x1, y1, thickness, color)
+end
+
+function rotated_rect_points(x, y, w, h, angle)
+  local cx = x + w / 2
+  local cy = y + h / 2
+  local x1, y1 = rotate_point(x, y, cx, cy, angle)
+  local x2, y2 = rotate_point(x + w, y, cx, cy, angle)
+  local x3, y3 = rotate_point(x + w, y + h, cx, cy, angle)
+  local x4, y4 = rotate_point(x, y + h, cx, cy, angle)
+  return x1, y1, x2, y2, x3, y3, x4, y4
+end
+
+function rotate_point(x, y, cx, cy, angle)
+  local s = math.sin(angle)
+  local c = math.cos(angle)
+  local dx = x - cx
+  local dy = y - cy
+  return cx + dx * c - dy * s, cy + dx * s + dy * c
 end
 
 function draw_box_opening()
