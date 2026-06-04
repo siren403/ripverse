@@ -158,6 +158,23 @@ back seam tear: vertical center seam opens from the back
 
 These can share input mechanics in the prototype while using distinct visuals.
 
+Front and back describe wrapper access direction, not card-face reveal direction.
+
+Phase 1 baseline:
+
+```text
+front open:
+- player sees the front of the wrapper
+- open by tearing the top horizontal tear line left-to-right or right-to-left
+- after extraction, reveal cards with the shared face-up slide flow
+
+back/trick open:
+- player opens the back seam
+- cards may be handled back-facing for reorder/card trick
+- after reorder, flip the stack face-up
+- reveal cards with the same face-up slide flow as front open
+```
+
 ## Player Controls
 
 The opening interaction should keep one clear next action.
