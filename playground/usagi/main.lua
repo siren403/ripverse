@@ -1362,14 +1362,14 @@ function drag_profile(card)
   if tier <= 2 then
     return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8 }
   elseif tier <= 3 then
-    return { tier = tier, resistance = 1.10, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 0, peek = 1, peek_gap = 14, peek_span = 28, tension_gap = 12, sag_divisor = 7 }
+    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 0, peek = 1, peek_gap = 12, peek_span = 30, tension_gap = 12, sag_divisor = 7 }
   elseif tier <= 4 then
-    return { tier = tier, resistance = 1.75, breakpoint = 68, hold_dx = 25, open_dx = 72, snap_rate = 2.4, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 16, sag_divisor = 6 }
+    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, snap_rate = 2.3, lift = 0, peek = 1, peek_gap = 9, peek_span = 40, tension_gap = 12, sag_divisor = 6 }
   elseif tier <= 6 then
-    return { tier = tier, resistance = 2.65, breakpoint = 78, hold_dx = 19, open_dx = 72, snap_rate = 2.9, lift = 0, peek = 2, peek_gap = 24, peek_span = 34, tension_gap = 22, sag_divisor = 5 }
+    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, snap_rate = 2.6, lift = 0, peek = 2, peek_gap = 5, peek_span = 56, tension_gap = 8, sag_divisor = 5 }
   end
 
-  return { tier = tier, resistance = 3.40, breakpoint = 86, hold_dx = 15, open_dx = 72, snap_rate = 3.3, lift = 0, peek = 2, peek_gap = 30, peek_span = 36, tension_gap = 28, sag_divisor = 4 }
+  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, snap_rate = 2.8, lift = 0, peek = 2, peek_gap = 2, peek_span = 72, tension_gap = 5, sag_divisor = 4 }
 end
 
 function point_in_rect(px, py, rect)
