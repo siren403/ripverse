@@ -37,6 +37,8 @@ local CARD_W = 50
 local CARD_H = 68
 local CARD_GAP = 8
 local CARD_Y = 62
+local CURRENT_CARD_X = math.floor((SCREEN_W - CARD_W) / 2)
+local CURRENT_CARD_Y = 70
 local CARD_PAD_X = 5
 local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
 local BUTTON_W = 126
@@ -52,8 +54,9 @@ local ONE_BUTTON_X = math.floor((SCREEN_W - BUTTON_W) / 2)
 local HITBOX = {
   box_buy = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
   box_inventory = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
-  pack_open = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
-  pack_inventory = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  pack_raw = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  pack_trick = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  pack_next = { x = ONE_BUTTON_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
   result_sell = { x = TWO_BUTTONS_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
   result_keep = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
   inventory_back = { x = ONE_BUTTON_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
@@ -63,10 +66,12 @@ local advance_primary
 local advance_secondary
 local handle_mouse_click
 local buy_box
-local open_pack
+local start_pack
+local advance_pack_reveal
 local update_reveal
-local reveal_hold
 local generate_pack
+local build_reveal_order
+local strongest_card_index
 local roll_rarity
 local cards_by_rarity
 local roll_value
@@ -82,7 +87,9 @@ local draw_box_opening
 local draw_pack_select
 local draw_pack_reveal
 local draw_pack_status
-local draw_big_pack
+local draw_pack_wrapper
+local draw_pack_stack
+local draw_current_reveal_card
 local draw_reveal_cards
 local draw_card
 local draw_card_back
@@ -113,6 +120,9 @@ function _init()
     inventory = {},
     packs_remaining = 0,
     current_box = nil,
+    pack_cards = {},
+    reveal_order = {},
+    opening_style = "raw",
     revealed_cards = {},
     reveal_index = 0,
     reveal_timer = 0,
@@ -135,7 +145,7 @@ function _update(dt)
     advance_secondary()
   end
 
-  if input.key_pressed(input.KEY_I) then
+  if input.key_pressed(input.KEY_I) and State.screen ~= "pack_reveal" then
     toggle_inventory()
   end
 
@@ -179,7 +189,9 @@ function advance_primary()
   if State.screen == "box_shop" then
     buy_box(boxes[1])
   elseif State.screen == "pack_select" then
-    open_pack()
+    start_pack("raw")
+  elseif State.screen == "pack_reveal" then
+    advance_pack_reveal()
   elseif State.screen == "result_summary" then
     sell_all()
   elseif State.screen == "inventory" then
@@ -190,9 +202,9 @@ end
 function advance_secondary()
   if State.screen == "result_summary" then
     keep_all()
-  elseif State.screen == "box_shop" then
-    toggle_inventory()
   elseif State.screen == "pack_select" then
+    start_pack("trick")
+  elseif State.screen == "box_shop" then
     toggle_inventory()
   end
 end
@@ -207,10 +219,14 @@ function handle_mouse_click()
       toggle_inventory()
     end
   elseif State.screen == "pack_select" then
-    if point_in_rect(mx, my, HITBOX.pack_open) then
-      open_pack()
-    elseif point_in_rect(mx, my, HITBOX.pack_inventory) then
-      toggle_inventory()
+    if point_in_rect(mx, my, HITBOX.pack_raw) then
+      start_pack("raw")
+    elseif point_in_rect(mx, my, HITBOX.pack_trick) then
+      start_pack("trick")
+    end
+  elseif State.screen == "pack_reveal" then
+    if point_in_rect(mx, my, HITBOX.pack_next) then
+      advance_pack_reveal()
     end
   elseif State.screen == "result_summary" then
     if point_in_rect(mx, my, HITBOX.result_sell) then
@@ -240,7 +256,7 @@ function buy_box(box)
   State.screen = "box_opening"
 end
 
-function open_pack()
+function start_pack(opening_style)
   if State.packs_remaining <= 0 then
     State.screen = "box_shop"
     State.message = "No packs left. Buy the next box."
@@ -249,56 +265,63 @@ function open_pack()
 
   State.packs_remaining = State.packs_remaining - 1
   State.pack_count_opened = State.pack_count_opened + 1
-  State.revealed_cards = generate_pack(State.current_box)
+  State.opening_style = opening_style
+  State.pack_cards = generate_pack(State.current_box)
+  State.reveal_order = build_reveal_order(State.pack_cards, opening_style)
+  State.revealed_cards = {}
+  for _, card_index in ipairs(State.reveal_order) do
+    table.insert(State.revealed_cards, State.pack_cards[card_index])
+  end
   State.reveal_index = 0
   State.reveal_timer = 0
-  State.reveal_phase = "closed_pack"
-  State.last_pack_value = total_value(State.revealed_cards)
-  State.message = "Ripping..."
+  State.reveal_phase = "wrapper"
+  State.last_pack_value = total_value(State.pack_cards)
+  if opening_style == "trick" then
+    State.message = "Back-facing trick."
+  else
+    State.message = "Raw rip."
+  end
   State.screen = "pack_reveal"
 end
 
-function update_reveal(dt)
-  State.reveal_timer = State.reveal_timer + dt
+function advance_pack_reveal()
+  State.reveal_timer = 0
 
-  if State.reveal_phase == "closed_pack" and State.reveal_timer >= 0.35 then
-    State.reveal_phase = "opening_pack"
-    State.reveal_timer = 0
-  elseif State.reveal_phase == "opening_pack" and State.reveal_timer >= 0.35 then
+  if State.reveal_phase == "wrapper" then
+    if State.opening_style == "trick" then
+      State.reveal_phase = "trick_stack"
+      State.message = "Move cards. Hit last."
+    else
+      State.reveal_phase = "card_back"
+      State.message = "Pull the first card."
+    end
+  elseif State.reveal_phase == "trick_stack" then
     State.reveal_phase = "card_back"
-    State.reveal_timer = 0
-  elseif State.reveal_phase == "card_back" and State.reveal_timer >= 0.24 then
+    State.message = "Flip the stack."
+  elseif State.reveal_phase == "card_back" then
     State.reveal_index = State.reveal_index + 1
     State.cards_seen = State.cards_seen + 1
     State.reveal_phase = "card_reveal"
-    State.reveal_timer = 0
-  elseif State.reveal_phase == "card_reveal" and State.reveal_timer >= reveal_hold() then
+
+    if State.reveal_index >= #State.revealed_cards then
+      State.message = "Final card."
+    else
+      State.message = "Card " .. State.reveal_index .. " of " .. #State.revealed_cards .. "."
+    end
+  elseif State.reveal_phase == "card_reveal" then
     if State.reveal_index >= #State.revealed_cards then
       State.screen = "result_summary"
       State.reveal_phase = "idle"
       State.message = "Sell or keep."
     else
       State.reveal_phase = "card_back"
-      State.reveal_timer = 0
+      State.message = "Next card."
     end
   end
 end
 
-function reveal_hold()
-  local card = State.revealed_cards[State.reveal_index]
-  if card == nil then
-    return 0.35
-  end
-
-  if card.rarity == "legendary" then
-    return 1.05
-  elseif card.rarity == "epic" then
-    return 0.85
-  elseif card.rarity == "rare" then
-    return 0.65
-  end
-
-  return 0.45
+function update_reveal(dt)
+  State.reveal_timer = State.reveal_timer + dt
 end
 
 function generate_pack(box)
@@ -320,6 +343,56 @@ function generate_pack(box)
   end
 
   return result
+end
+
+function build_reveal_order(card_list, opening_style)
+  local result = {}
+
+  if opening_style ~= "trick" then
+    for i = 1, #card_list do
+      table.insert(result, i)
+    end
+
+    return result
+  end
+
+  local hit_index = strongest_card_index(card_list)
+  local trick_order = { 2, 3, 1, 4, 5 }
+
+  for _, index in ipairs(trick_order) do
+    if index <= #card_list and index ~= hit_index then
+      table.insert(result, index)
+    end
+  end
+
+  table.insert(result, hit_index)
+  return result
+end
+
+function strongest_card_index(card_list)
+  local best_index = #card_list
+  local best_score = -1
+
+  for i, card in ipairs(card_list) do
+    local rarity_score = 1
+    if card.rarity == "uncommon" then
+      rarity_score = 2
+    elseif card.rarity == "rare" then
+      rarity_score = 3
+    elseif card.rarity == "epic" then
+      rarity_score = 4
+    elseif card.rarity == "legendary" then
+      rarity_score = 5
+    end
+
+    local score = rarity_score * 10000 + card.base_value
+    if score >= best_score then
+      best_score = score
+      best_index = i
+    end
+  end
+
+  return best_index
 end
 
 function roll_rarity(rarity_table)
@@ -364,6 +437,8 @@ end
 
 function sell_all()
   State.money = State.money + State.last_pack_value
+  State.pack_cards = {}
+  State.reveal_order = {}
   State.revealed_cards = {}
   after_pack_decision("Sold $" .. State.last_pack_value .. ". Next?")
 end
@@ -373,6 +448,8 @@ function keep_all()
     table.insert(State.inventory, card)
   end
 
+  State.pack_cards = {}
+  State.reveal_order = {}
   State.revealed_cards = {}
   after_pack_decision("Kept " .. #State.inventory .. " cards.")
 end
@@ -447,34 +524,43 @@ end
 
 function draw_pack_select()
   draw_panel(PANEL_MAIN.x, PANEL_MAIN.y, PANEL_MAIN.w, PANEL_MAIN.h)
-  gfx.text("OPENED BOX", 32, 48, COLOR.TEXT)
-  gfx.text("Packs remaining: " .. State.packs_remaining, 32, 68, COLOR.MONEY)
-  gfx.text("5 cards per pack", 32, 84, COLOR.MUTED)
-  gfx.text("Open the next one.", 32, 100, COLOR.MUTED)
+  gfx.text("OPEN STYLE", 32, 48, COLOR.TEXT)
+  gfx.text("Packs left: " .. State.packs_remaining, 32, 68, COLOR.MONEY)
+  gfx.text("RAW is fast.", 32, 84, COLOR.MUTED)
+  gfx.text("TRICK saves hit for last.", 32, 100, COLOR.MUTED)
 
-  draw_button_group(BUTTON_ROW_Y, "OPEN", COLOR.GOOD, "CARDS", COLOR.RARE)
+  draw_button_group(BUTTON_ROW_Y, "RAW", COLOR.GOOD, "TRICK", COLOR.RARE)
 end
 
 function draw_pack_reveal()
   draw_pack_status()
 
-  if State.reveal_phase == "closed_pack" or State.reveal_phase == "opening_pack" then
-    draw_big_pack()
+  if State.reveal_phase == "wrapper" then
+    draw_pack_wrapper()
+  elseif State.reveal_phase == "trick_stack" or State.reveal_phase == "card_back" then
+    draw_pack_stack()
   else
-    draw_reveal_cards()
+    draw_current_reveal_card()
   end
+
+  draw_button(ONE_BUTTON_X, RESULT_BUTTON_Y, "NEXT", COLOR.GOOD)
 end
 
 function draw_pack_status()
-  gfx.text("PACK REVEAL", 16, 34, COLOR.TEXT)
-  gfx.text("Value $" .. State.last_pack_value, 222, 34, COLOR.MONEY)
+  local style = "RAW"
+  if State.opening_style == "trick" then
+    style = "TRICK"
+  end
+
+  gfx.text("PACK " .. style, 16, 34, COLOR.TEXT)
+  draw_right_text("CARD " .. State.reveal_index .. "/" .. #State.revealed_cards, 304, 34, COLOR.MUTED)
 end
 
-function draw_big_pack()
+function draw_pack_wrapper()
   local pulse = math.floor(State.reveal_timer * 10) % 2
   local color = COLOR.RARE
 
-  if State.reveal_phase == "opening_pack" and pulse == 1 then
+  if pulse == 1 then
     color = COLOR.LEGENDARY
   end
 
@@ -482,7 +568,32 @@ function draw_big_pack()
   gfx.rect_ex(126, 58, 68, 88, 3, color)
   gfx.text("GENESIS", 142, 82, COLOR.TEXT)
   gfx.text("PACK", 150, 100, color)
-  gfx.text("RIPPING...", 132, 128, COLOR.MUTED)
+  gfx.text("SEALED", 138, 128, COLOR.MUTED)
+end
+
+function draw_pack_stack()
+  local x = CURRENT_CARD_X
+  local y = CURRENT_CARD_Y
+
+  if State.reveal_phase == "trick_stack" then
+    gfx.text("BACK FACING", 112, 52, COLOR.MUTED)
+    gfx.rect_fill(x + 8, y - 8, CARD_W, CARD_H, COLOR.PANEL_DARK)
+    gfx.rect(x + 8, y - 8, CARD_W, CARD_H, COLOR.RARE)
+  else
+    gfx.text("READY", 142, 52, COLOR.MUTED)
+  end
+
+  draw_card_back(x, y)
+end
+
+function draw_current_reveal_card()
+  local card = State.revealed_cards[State.reveal_index]
+  if card == nil then
+    draw_card_back(CURRENT_CARD_X, CURRENT_CARD_Y)
+    return
+  end
+
+  draw_card(card, CURRENT_CARD_X, CURRENT_CARD_Y, true)
 end
 
 function draw_reveal_cards()
@@ -551,7 +662,9 @@ function footer_hint()
   if State.screen == "box_shop" then
     return "enter buy | space cards"
   elseif State.screen == "pack_select" then
-    return "enter open | space cards"
+    return "enter raw | space trick"
+  elseif State.screen == "pack_reveal" then
+    return "enter next"
   elseif State.screen == "result_summary" then
     return "enter sell | space keep"
   elseif State.screen == "inventory" then
