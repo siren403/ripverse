@@ -40,7 +40,19 @@ local CARD_Y = 62
 local STACK_CARD_X = 118
 local STACK_CARD_Y = 70
 local DRAG_COMMIT_DISTANCE = 58
-local TEAR_DISTANCE = 34
+local TEAR_GESTURE_DISTANCE = 44
+local BACK_TEAR_GESTURE_DISTANCE = 62
+local PACK_X = 126
+local PACK_Y = 58
+local PACK_W = 68
+local PACK_H = 88
+local PACK_TEAR_W = PACK_W
+local PACK_SEAM_H = 80
+local PACK_QUEUE_X = 24
+local PACK_QUEUE_Y = 66
+local PACK_QUEUE_STEP_X = 7
+local PACK_QUEUE_STEP_Y = 5
+local PACK_TURN_DISTANCE = 72
 local CARD_PAD_X = 5
 local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
 local SHOP_ITEM_W = 72
@@ -61,8 +73,7 @@ local TWO_BUTTONS_X = math.floor((SCREEN_W - BUTTON_W * 2 - BUTTON_GAP) / 2)
 local ONE_BUTTON_X = math.floor((SCREEN_W - BUTTON_W) / 2)
 
 local HITBOX = {
-  pack_raw = { x = TWO_BUTTONS_X, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
-  pack_trick = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = BUTTON_ROW_Y, w = BUTTON_W, h = HIT_H },
+  active_pack = { x = PACK_X, y = PACK_Y, w = PACK_W, h = PACK_H },
   result_sell = { x = TWO_BUTTONS_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
   result_keep = { x = TWO_BUTTONS_X + BUTTON_W + BUTTON_GAP, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
   inventory_back = { x = ONE_BUTTON_X, y = RESULT_BUTTON_Y, w = BUTTON_W, h = HIT_H },
@@ -72,9 +83,11 @@ local advance_primary
 local advance_secondary
 local handle_mouse_click
 local update_shop_drag
+local update_pack_select_drag
 local update_pack_drag
 local buy_box
 local selected_box
+local sync_packs_remaining
 local start_pack
 local advance_pack_reveal
 local begin_face_up_reveal
@@ -103,6 +116,9 @@ local rotated_rect_points
 local rotate_point
 local draw_box_opening
 local draw_pack_select
+local draw_pack_queue
+local draw_active_pack
+local draw_pack_face
 local draw_pack_reveal
 local draw_pack_status
 local draw_pack_wrapper
@@ -142,6 +158,9 @@ function _init()
     selected_box_index = 1,
     shop_offset = 0,
     shop_drag = nil,
+    pack_queue = {},
+    pack_turn = 0,
+    pack_side = "front",
     packs_remaining = 0,
     current_box = nil,
     pack_cards = {},
@@ -153,6 +172,7 @@ function _init()
     reveal_phase = "idle",
     drag = nil,
     drag_card = nil,
+    tear_dir = 1,
     tear_progress = 0,
     trick_progress = 0,
     card_drag_x = 0,
@@ -182,6 +202,8 @@ function _update(dt)
 
   if State.screen == "box_shop" then
     update_shop_drag()
+  elseif State.screen == "pack_select" then
+    update_pack_select_drag()
   end
 
   if State.screen == "pack_reveal" then
@@ -228,7 +250,7 @@ function advance_primary()
   if State.screen == "box_shop" then
     buy_box(selected_box())
   elseif State.screen == "pack_select" then
-    start_pack("raw")
+    start_pack()
   elseif State.screen == "pack_reveal" then
     advance_pack_reveal()
   elseif State.screen == "result_summary" then
@@ -241,8 +263,6 @@ end
 function advance_secondary()
   if State.screen == "result_summary" then
     keep_all()
-  elseif State.screen == "pack_select" then
-    start_pack("trick")
   elseif State.screen == "box_shop" then
     toggle_inventory()
   end
@@ -258,11 +278,7 @@ function handle_mouse_click()
   if State.screen == "box_shop" then
     return
   elseif State.screen == "pack_select" then
-    if point_in_rect(mx, my, HITBOX.pack_raw) then
-      start_pack("raw")
-    elseif point_in_rect(mx, my, HITBOX.pack_trick) then
-      start_pack("trick")
-    end
+    return
   elseif State.screen == "result_summary" then
     if point_in_rect(mx, my, HITBOX.result_sell) then
       sell_all()
@@ -319,6 +335,45 @@ function update_shop_drag()
   end
 end
 
+function update_pack_select_drag()
+  local mx, my = input.mouse()
+  local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
+
+  if not in_bounds then
+    if not input.mouse_held(input.MOUSE_LEFT) then
+      State.drag = nil
+    end
+    return
+  end
+
+  if input.mouse_pressed(input.MOUSE_LEFT) and point_in_rect(mx, my, HITBOX.active_pack) then
+    State.drag = {
+      kind = "pack_turn",
+      start_x = mx,
+      start_turn = State.pack_turn,
+      moved = false,
+    }
+  end
+
+  if State.drag and State.drag.kind == "pack_turn" and input.mouse_held(input.MOUSE_LEFT) then
+    local dx = mx - State.drag.start_x
+    State.pack_turn = math.max(0, math.min(1, State.drag.start_turn + dx / PACK_TURN_DISTANCE))
+    State.pack_side = State.pack_turn >= 0.5 and "back" or "front"
+    if math.abs(dx) >= SHOP_DRAG_THRESHOLD then
+      State.drag.moved = true
+    end
+  elseif State.drag and State.drag.kind == "pack_turn" then
+    State.pack_turn = State.pack_turn >= 0.5 and 1 or 0
+    State.pack_side = State.pack_turn >= 0.5 and "back" or "front"
+    if State.drag.moved then
+      State.message = State.pack_side == "back" and "Back seam staged." or "Top tear staged."
+    else
+      start_pack()
+    end
+    State.drag = nil
+  end
+end
+
 function update_pack_drag()
   local mx, my = input.mouse()
   local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
@@ -331,8 +386,9 @@ function update_pack_drag()
   end
 
   if input.mouse_pressed(input.MOUSE_LEFT) then
-    if State.reveal_phase == "wrapper" and point_in_rect(mx, my, { x = 126, y = 58, w = 68, h = 88 }) then
-      State.drag = { kind = "tear", start_x = mx, start_y = my }
+    if State.reveal_phase == "wrapper" and point_in_rect(mx, my, HITBOX.active_pack) then
+      State.tear_dir = mx >= PACK_X + PACK_W / 2 and -1 or 1
+      State.drag = { kind = "tear", start_x = mx, start_y = my, tear_dir = State.tear_dir }
     elseif State.reveal_phase == "card_reveal"
       and State.reveal_index <= #State.revealed_cards
       and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y, w = CARD_W, h = CARD_H }) then
@@ -346,9 +402,11 @@ function update_pack_drag()
   if State.drag and input.mouse_held(input.MOUSE_LEFT) then
     if State.drag.kind == "tear" then
       if State.opening_style == "trick" then
-        State.tear_progress = drag_progress(my - State.drag.start_y, TEAR_DISTANCE)
+        State.tear_progress = drag_progress(my - State.drag.start_y, BACK_TEAR_GESTURE_DISTANCE)
+      elseif State.drag.tear_dir < 0 then
+        State.tear_progress = drag_progress(State.drag.start_x - mx, TEAR_GESTURE_DISTANCE)
       else
-        State.tear_progress = drag_progress(mx - State.drag.start_x, TEAR_DISTANCE)
+        State.tear_progress = drag_progress(mx - State.drag.start_x, TEAR_GESTURE_DISTANCE)
       end
     elseif State.drag.kind == "card" then
       local reveal_card = State.revealed_cards[State.reveal_index + 1] or State.drag_card
@@ -385,7 +443,13 @@ function buy_box(box)
 
   State.money = State.money - box.price
   State.current_box = box
-  State.packs_remaining = box.pack_count
+  State.pack_queue = {}
+  for i = 1, box.pack_count do
+    table.insert(State.pack_queue, { index = i, box_id = box.id })
+  end
+  sync_packs_remaining()
+  State.pack_turn = 0
+  State.pack_side = "front"
   State.box_count_opened = State.box_count_opened + 1
   State.transition_timer = 0
   State.message = "Opening box..."
@@ -396,15 +460,21 @@ function selected_box()
   return boxes[State.selected_box_index] or boxes[1]
 end
 
+function sync_packs_remaining()
+  State.packs_remaining = #State.pack_queue
+end
+
 function start_pack(opening_style)
-  if State.packs_remaining <= 0 then
+  if #State.pack_queue <= 0 then
     State.screen = "box_shop"
     State.message = "No packs left. Buy the next box."
     return
   end
 
-  State.packs_remaining = State.packs_remaining - 1
+  table.remove(State.pack_queue, 1)
+  sync_packs_remaining()
   State.pack_count_opened = State.pack_count_opened + 1
+  opening_style = opening_style or (State.pack_side == "back" and "trick" or "raw")
   State.opening_style = opening_style
   State.pack_cards = generate_pack(State.current_box)
   State.reveal_order = build_reveal_order(State.pack_cards, opening_style)
@@ -418,11 +488,14 @@ function start_pack(opening_style)
   State.drag = nil
   State.drag_card = nil
   State.tear_progress = 0
+  State.tear_dir = 1
   State.trick_progress = 0
   State.card_drag_x = 0
   State.card_drag_y = 0
   State.card_drag_progress = 0
   State.last_pack_value = total_value(State.pack_cards)
+  State.pack_turn = opening_style == "trick" and 1 or 0
+  State.pack_side = opening_style == "trick" and "back" or "front"
   if opening_style == "trick" then
     State.message = "Back-facing trick."
   else
@@ -643,7 +716,11 @@ end
 function after_pack_decision(message)
   State.message = message
 
-  if State.packs_remaining > 0 then
+  sync_packs_remaining()
+  State.pack_turn = 0
+  State.pack_side = "front"
+
+  if #State.pack_queue > 0 then
     State.screen = "pack_select"
   else
     State.screen = "box_shop"
@@ -766,26 +843,71 @@ end
 function draw_box_opening()
   local pulse = math.floor(State.transition_timer * 12) % 2
   local color = COLOR.MONEY
+  local box = State.current_box or selected_box()
 
   if pulse == 1 then
     color = COLOR.LEGENDARY
   end
 
   draw_panel(PANEL_FOCUS.x, PANEL_FOCUS.y, PANEL_FOCUS.w, PANEL_FOCUS.h)
-  gfx.text("STARTER BOX", 104, 58, COLOR.TEXT)
+  draw_fit_text(box.name, 104, 58, 112, COLOR.TEXT)
   gfx.rect_ex(120, 76, 80, 46, 3, color)
-  gfx.text("3 PACKS", 138, 94, color)
+  gfx.text(box.pack_count .. " PACKS", 138, 94, color)
   gfx.text("OPENING...", 116, 126, COLOR.MUTED)
 end
 
 function draw_pack_select()
-  draw_panel(PANEL_MAIN.x, PANEL_MAIN.y, PANEL_MAIN.w, PANEL_MAIN.h)
-  gfx.text("OPEN STYLE", 32, 48, COLOR.TEXT)
-  gfx.text("Packs left: " .. State.packs_remaining, 32, 68, COLOR.MONEY)
-  gfx.text("RAW is fast.", 32, 84, COLOR.MUTED)
-  gfx.text("TRICK saves hit for last.", 32, 100, COLOR.MUTED)
+  gfx.text("PACK QUEUE", 16, 36, COLOR.TEXT)
+  draw_right_text("LEFT " .. State.packs_remaining, 304, 36, COLOR.MONEY)
+  draw_pack_queue()
+  draw_active_pack()
+end
 
-  draw_button_group(BUTTON_ROW_Y, "RAW", COLOR.GOOD, "TRICK", COLOR.RARE)
+function draw_pack_queue()
+  local count = math.min(#State.pack_queue, 6)
+
+  for i = count, 1, -1 do
+    local x = PACK_QUEUE_X + (i - 1) * PACK_QUEUE_STEP_X
+    local y = PACK_QUEUE_Y + (i - 1) * PACK_QUEUE_STEP_Y
+    local angle = -0.18 + i * 0.035
+    draw_pack_face(x, y, 36, 48, angle, "front", false, COLOR.RARE)
+  end
+
+  if #State.pack_queue == 0 then
+    gfx.text("EMPTY", PACK_QUEUE_X, PACK_QUEUE_Y + 18, COLOR.MUTED)
+  end
+end
+
+function draw_active_pack()
+  local turn = State.pack_turn
+  local face = turn >= 0.5 and "back" or "front"
+  local squash = math.abs(1 - turn * 2)
+  local w = math.max(12, math.floor(PACK_W * (0.28 + squash * 0.72)))
+  local x = PACK_X + math.floor((PACK_W - w) / 2)
+  local angle = (turn - 0.5) * 0.18
+  local color = face == "back" and COLOR.EPIC or COLOR.RARE
+
+  draw_pack_face(x, PACK_Y, w, PACK_H, angle, face, true, color)
+  gfx.text(face == "back" and "BACK" or "FRONT", 142, 150, color)
+  gfx.text(face == "back" and "seam rip" or "top rip", 130, 136, COLOR.MUTED)
+end
+
+function draw_pack_face(x, y, w, h, angle, face, selected, color)
+  draw_rotated_pack_card(x, y, w, h, angle, selected, color)
+
+  if w < 30 then
+    return
+  end
+
+  if face == "back" then
+    gfx.text("BACK", x + math.max(4, math.floor(w / 2) - 10), y + 24, COLOR.TEXT)
+    gfx.text("SEAM", x + math.max(4, math.floor(w / 2) - 10), y + 43, color)
+    draw_rotated_rect(x + math.floor(w / 2) - 2, y + 8, 4, h - 16, angle, 1, COLOR.MUTED)
+  else
+    gfx.text("RIP", x + math.max(4, math.floor(w / 2) - 6), y + 16, COLOR.TEXT)
+    gfx.text("PACK", x + math.max(4, math.floor(w / 2) - 12), y + 43, color)
+    draw_rotated_rect(x + 5, y + 12, w - 10, 3, angle, 1, COLOR.MUTED)
+  end
 end
 
 function draw_pack_reveal()
@@ -803,9 +925,9 @@ function draw_pack_reveal()
 end
 
 function draw_pack_status()
-  local style = "RAW"
+  local style = "TOP"
   if State.opening_style == "trick" then
-    style = "TRICK"
+    style = "SEAM"
   end
 
   gfx.text("PACK " .. style, 16, 34, COLOR.TEXT)
@@ -815,30 +937,35 @@ end
 function draw_pack_wrapper()
   local pulse = math.floor(State.reveal_timer * 10) % 2
   local color = COLOR.RARE
-  local tear_x = math.floor(State.tear_progress * TEAR_DISTANCE)
+  local tear_w = math.floor(State.tear_progress * PACK_TEAR_W)
 
   if pulse == 1 then
     color = COLOR.LEGENDARY
   end
 
   if State.opening_style == "trick" then
-    local seam_h = math.max(2, math.floor(State.tear_progress * 78))
-    gfx.rect_fill(126, 58, 68, 88, COLOR.PANEL_DARK)
-    gfx.rect_ex(126, 58, 68, 88, 3, color)
-    gfx.rect_fill(154, 62, 12, seam_h, COLOR.PANEL)
-    gfx.rect(158, 62, 4, 80, COLOR.MUTED)
-    gfx.rect_fill(157, 62, 6, seam_h, COLOR.RARE)
-    gfx.text("BACK", 146, 82, COLOR.TEXT)
-    gfx.text("SEAM", 144, 102, color)
-    gfx.text("PULL DOWN", 128, 128, COLOR.MUTED)
+    local seam_h = math.max(2, math.floor(State.tear_progress * PACK_SEAM_H))
+    gfx.rect_fill(PACK_X, PACK_Y, PACK_W, PACK_H, COLOR.PANEL_DARK)
+    gfx.rect_ex(PACK_X, PACK_Y, PACK_W, PACK_H, 3, color)
+    gfx.rect_fill(PACK_X + 28, PACK_Y + 6, 12, seam_h, COLOR.PANEL)
+    gfx.rect(PACK_X + 32, PACK_Y + 6, 4, PACK_SEAM_H, COLOR.MUTED)
+    gfx.rect_fill(PACK_X + 31, PACK_Y + 6, 6, seam_h, COLOR.RARE)
+    gfx.text("BACK", PACK_X + 20, PACK_Y + 24, COLOR.TEXT)
+    gfx.text("SEAM", PACK_X + 18, PACK_Y + 44, color)
+    gfx.text("PULL DOWN", PACK_X + 2, PACK_Y + 70, COLOR.MUTED)
   else
-    gfx.rect_fill(126, 58, 68, 88, COLOR.PANEL)
-    gfx.rect_ex(126, 58, 68, 88, 3, color)
-    gfx.rect_fill(126, 58, tear_x, 17, COLOR.PANEL_DARK)
-    gfx.rect(126, 72, 68, 2, COLOR.MUTED)
-    gfx.text("GENESIS", 142, 82, COLOR.TEXT)
-    gfx.text("PACK", 150, 100, color)
-    gfx.text("TOP TEAR", 132, 128, COLOR.MUTED)
+    local tear_x = PACK_X
+    if State.tear_dir < 0 then
+      tear_x = PACK_X + PACK_W - tear_w
+    end
+
+    gfx.rect_fill(PACK_X, PACK_Y, PACK_W, PACK_H, COLOR.PANEL)
+    gfx.rect_ex(PACK_X, PACK_Y, PACK_W, PACK_H, 3, color)
+    gfx.rect_fill(tear_x, PACK_Y, tear_w, 17, COLOR.PANEL_DARK)
+    gfx.rect(PACK_X, PACK_Y + 14, PACK_W, 2, COLOR.MUTED)
+    gfx.text("GENESIS", PACK_X + 16, PACK_Y + 24, COLOR.TEXT)
+    gfx.text("PACK", PACK_X + 24, PACK_Y + 42, color)
+    gfx.text("TOP TEAR", PACK_X + 6, PACK_Y + 70, COLOR.MUTED)
   end
 end
 
@@ -951,7 +1078,7 @@ function footer_hint()
   if State.screen == "box_shop" then
     return "drag packs | space cards"
   elseif State.screen == "pack_select" then
-    return "enter raw | space trick"
+    return "drag turn | tap open"
   elseif State.screen == "pack_reveal" then
     return "drag | enter"
   elseif State.screen == "result_summary" then
