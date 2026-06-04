@@ -611,7 +611,7 @@ end
 
 function generate_slot_pack(pack, model)
   local result = {}
-  local event = roll_pack_event(model)
+  local event = roll_pack_event(pack, model)
 
   for i, slot in ipairs(model.slots) do
     local rarity = roll_rarity(slot_rarity_table(pack, slot, event))
@@ -645,10 +645,18 @@ function pack_model_by_id(model_id)
   return pack_models[1]
 end
 
-function roll_pack_event(model)
+function roll_pack_event(pack, model)
   local events = model.pack_events
   if events == nil then
     return { id = "normal", label = "Normal Pack" }
+  end
+
+  if pack.event_override ~= nil then
+    for _, event in ipairs(events) do
+      if event.id == pack.event_override then
+        return event
+      end
+    end
   end
 
   local roll = math.random()

@@ -87,5 +87,33 @@
         ]
       }
     }
+  },
+  {
+    "id": "hot_test_box",
+    "name": "Hot Test",
+    "price": 1,
+    "pack_count": 1,
+    "set_id": "genesis",
+    "pack": {
+      "id": "hot_test_pack",
+      "name": "Hot Test Pack",
+      "set_id": "genesis",
+      "model_id": "sv_five_card",
+      "event_override": "hot_pack"
+    }
+  },
+  {
+    "id": "god_test_box",
+    "name": "God Test",
+    "price": 1,
+    "pack_count": 1,
+    "set_id": "genesis",
+    "pack": {
+      "id": "god_test_pack",
+      "name": "God Test Pack",
+      "set_id": "genesis",
+      "model_id": "sv_five_card",
+      "event_override": "god_pack"
+    }
   }
 ]
