@@ -440,7 +440,7 @@ function update_pack_drag()
       State.card_drag_progress = math.max(0, math.min(1, card_dx / DRAG_COMMIT_DISTANCE))
       State.card_tension_gap = math.max(0, pointer_dx - card_dx)
       State.card_snap_ready = pointer_dx >= profile.breakpoint
-      State.card_drag_y = STACK_CARD_Y - math.floor(profile.lift * math.min(1, State.card_tension_gap / 32))
+      State.card_drag_y = STACK_CARD_Y
     end
   elseif State.drag then
     if State.drag.kind == "tear" then
@@ -1208,8 +1208,13 @@ function draw_card_peek(card, progress)
     return
   end
 
+  if State.card_tension_gap < profile.peek_gap then
+    return
+  end
+
   local color = rarity_color(card.rarity)
-  local inset = math.max(1, 5 - math.floor(progress * 4))
+  local peek_progress = math.min(1, (State.card_tension_gap - profile.peek_gap) / profile.peek_span)
+  local inset = math.max(1, 5 - math.floor(peek_progress * 4))
   local shine = math.floor((usagi.elapsed * 10) % 2)
   gfx.rect(STACK_CARD_X - inset, STACK_CARD_Y - inset, CARD_W + inset * 2, CARD_H + inset * 2, color)
   if profile.peek >= 2 and shine == 1 then
@@ -1218,11 +1223,11 @@ function draw_card_peek(card, progress)
 end
 
 function draw_tension_line(card)
-  if State.card_tension_gap <= 2 then
+  local profile = drag_profile(card)
+  if State.card_tension_gap < profile.tension_gap then
     return
   end
 
-  local profile = drag_profile(card)
   local color = rarity_color(card.rarity)
   local y = STACK_CARD_Y + CARD_H + 5
   local x1 = State.card_drag_x + CARD_W
@@ -1355,16 +1360,16 @@ function drag_profile(card)
   local tier = rarity_score(card)
 
   if tier <= 2 then
-    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, sag_divisor = 8 }
+    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8 }
   elseif tier <= 3 then
-    return { tier = tier, resistance = 1.10, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 2, peek = 1, sag_divisor = 7 }
+    return { tier = tier, resistance = 1.10, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 0, peek = 1, peek_gap = 14, peek_span = 28, tension_gap = 12, sag_divisor = 7 }
   elseif tier <= 4 then
-    return { tier = tier, resistance = 1.75, breakpoint = 68, hold_dx = 25, open_dx = 72, snap_rate = 2.4, lift = 4, peek = 1, sag_divisor = 6 }
+    return { tier = tier, resistance = 1.75, breakpoint = 68, hold_dx = 25, open_dx = 72, snap_rate = 2.4, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 16, sag_divisor = 6 }
   elseif tier <= 6 then
-    return { tier = tier, resistance = 2.65, breakpoint = 78, hold_dx = 19, open_dx = 72, snap_rate = 2.9, lift = 6, peek = 2, sag_divisor = 5 }
+    return { tier = tier, resistance = 2.65, breakpoint = 78, hold_dx = 19, open_dx = 72, snap_rate = 2.9, lift = 0, peek = 2, peek_gap = 24, peek_span = 34, tension_gap = 22, sag_divisor = 5 }
   end
 
-  return { tier = tier, resistance = 3.40, breakpoint = 86, hold_dx = 15, open_dx = 72, snap_rate = 3.3, lift = 8, peek = 2, sag_divisor = 4 }
+  return { tier = tier, resistance = 3.40, breakpoint = 86, hold_dx = 15, open_dx = 72, snap_rate = 3.3, lift = 0, peek = 2, peek_gap = 30, peek_span = 36, tension_gap = 28, sag_divisor = 4 }
 end
 
 function point_in_rect(px, py, rect)
