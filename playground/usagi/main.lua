@@ -93,8 +93,11 @@ local advance_pack_reveal
 local begin_face_up_reveal
 local update_reveal
 local generate_pack
+local generate_slot_pack
+local generate_flat_pack
 local build_reveal_order
 local strongest_card_index
+local hit_card_index
 local roll_rarity
 local cards_by_rarity
 local roll_value
@@ -579,10 +582,43 @@ function update_reveal(dt)
 end
 
 function generate_pack(box)
-  local result = {}
   local pack = box.pack
 
-  for _ = 1, pack.card_count do
+  if pack.slot_table ~= nil then
+    return generate_slot_pack(pack)
+  end
+
+  return generate_flat_pack(pack)
+end
+
+function generate_slot_pack(pack)
+  local result = {}
+
+  for i, slot in ipairs(pack.slot_table) do
+    local rarity = roll_rarity(slot.rarity_table)
+    local pool = cards_by_rarity(rarity)
+    local template = pool[math.random(1, #pool)]
+    local value = roll_value(template.value_min, template.value_max)
+    table.insert(result, {
+      id = template.id,
+      name = template.name,
+      set_id = template.set_id,
+      rarity = template.rarity,
+      base_value = value,
+      slot = slot.slot,
+      slot_index = i,
+      slot_label = slot.label,
+      treatment = slot.treatment,
+    })
+  end
+
+  return result
+end
+
+function generate_flat_pack(pack)
+  local result = {}
+
+  for i = 1, pack.card_count do
     local rarity = roll_rarity(pack.rarity_table)
     local pool = cards_by_rarity(rarity)
     local template = pool[math.random(1, #pool)]
@@ -593,6 +629,10 @@ function generate_pack(box)
       set_id = template.set_id,
       rarity = template.rarity,
       base_value = value,
+      slot = "wild_" .. i,
+      slot_index = i,
+      slot_label = "wild",
+      treatment = "base",
     })
   end
 
@@ -610,7 +650,7 @@ function build_reveal_order(card_list, opening_style)
     return result
   end
 
-  local hit_index = strongest_card_index(card_list)
+  local hit_index = hit_card_index(card_list)
   local trick_order = { 2, 3, 1, 4, 5 }
 
   for _, index in ipairs(trick_order) do
@@ -621,6 +661,16 @@ function build_reveal_order(card_list, opening_style)
 
   table.insert(result, hit_index)
   return result
+end
+
+function hit_card_index(card_list)
+  for i, card in ipairs(card_list) do
+    if card.slot == "hit" then
+      return i
+    end
+  end
+
+  return strongest_card_index(card_list)
 end
 
 function strongest_card_index(card_list)
@@ -1026,11 +1076,22 @@ end
 
 function draw_card(card, x, y, is_current)
   local color = RARITY_COLORS[card.rarity] or COLOR.MUTED
+  local treatment = card.treatment or "base"
+  local label = card.rarity
+
+  if treatment == "reverse" then
+    label = "rev " .. card.rarity
+  elseif treatment == "holo" then
+    label = "holo " .. card.rarity
+  end
 
   gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
   gfx.rect_ex(x, y, CARD_W, CARD_H, is_current and 3 or 1, color)
+  if treatment ~= "base" then
+    gfx.rect(x + 3, y + 3, CARD_W - 6, CARD_H - 6, color)
+  end
   draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
-  draw_fit_text(card.rarity, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
+  draw_fit_text(label, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
   draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
 end
 

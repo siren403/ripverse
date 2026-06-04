@@ -54,20 +54,23 @@ hit slot: revealed last when using trick-based modes
 Use a compact five-card pack for the playground.
 
 ```text
-slot 1: base card
-slot 2: base card
-slot 3: base card
-slot 4: sparkle slot
-slot 5: hit slot
+slot 1: common base
+slot 2: common base
+slot 3: uncommon base
+slot 4: parallel / reverse slot
+slot 5: holo rare-or-better hit slot
 ```
 
 Slot meanings:
 
-- `base card`: low suspense, fast reveal.
-- `sparkle slot`: possible mid-pack surprise.
-- `hit slot`: highest suspense, usually last.
+- `common base`: low suspense, fast reveal.
+- `uncommon base`: slightly better baseline card before the suspense slots.
+- `parallel / reverse slot`: can show common, uncommon, rare, or a rare upgrade with a stronger foil signal.
+- `holo rare-or-better hit slot`: guaranteed rare-or-better climax slot.
 
-The current economy can keep the existing rarity roll for each card, but reveal presentation should treat the strongest or configured hit card as the pack climax.
+Model this as a compressed Scarlet & Violet-inspired structure. Current Pokemon booster packs are larger, but the key feel to preserve is that the early cards are low suspense and the final foil/hit slots carry the reveal tension.
+
+Use `slot_table` in pack data when available. Roll each slot from its own rarity table, store generated slot metadata on each card, and keep the `hit` slot last in trick reveal order. A flat pack-wide `rarity_table` may remain as fallback data only.
 
 ## Pack Selection
 
