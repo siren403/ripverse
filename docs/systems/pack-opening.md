@@ -6,6 +6,8 @@ Ripverse pack opening should feel like a physical card pack ritual, not a static
 
 The system should increase suspense around the same generated cards. Opening techniques may change reveal order, pacing, and presentation, but must not change pull rates or card values.
 
+For the Phase 1 playground, motion is the first validation target. Wrapper tearing, card dragging, sliding, flipping, partial peeks, and pacing should be prototyped before deeper pack-system completeness. Static buttons are acceptable as accessibility fallbacks, but should not be the primary pack-opening interaction.
+
 ## Real TCG Reference
 
 Modern Pokemon TCG booster packs are structured around known suspense slots. Pokemon Support describes current booster packs as 10 game cards: 4 commons, 3 uncommons, and 3 foils, with at least one foil rare or higher. Packs also include an Energy card and a code card.
@@ -127,8 +129,8 @@ The opening interaction should keep one clear next action.
 
 ```text
 OPEN STYLE -> RAW / TRICK
-RIP -> wrapper animation
-NEXT -> reveal next card
+DRAG -> tear wrapper
+DRAG -> slide or flip next card
 SELL / KEEP -> after all cards are revealed
 ```
 
