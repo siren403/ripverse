@@ -62,6 +62,8 @@ For `$harness-stabilizer`, default to a stabilization report and proposed artifa
 
 For approved work, keep the repository in a clean, preserved state between tasks. Commit completed changes promptly after validation so the user can judge from a stable checkpoint. Do not leave intended work uncommitted at turn end unless the user asks to hold it, the change is still exploratory, validation is blocked, or committing would mix unrelated work.
 
+When a fix identifies a concrete offending pattern, API call, state name, selector, or expression, verify that exact target before reporting success. Use direct search such as `rg` for removed or replaced code paths, and mention the verification result if the user specifically called out that target.
+
 ## Turn Closure
 
 When ending a work turn, state the next concrete objective or the desirable immediate objective when it is useful for orientation. Keep it as a milestone that preserves direction, not as a broad recommendation list.
