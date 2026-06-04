@@ -3,6 +3,66 @@
     "id": "sv_five_card",
     "name": "SV Five Card",
     "card_count": 5,
+    "pack_events": [
+      {
+        "id": "normal",
+        "label": "Normal Pack",
+        "weight": 0.94,
+        "slot_overrides": {}
+      },
+      {
+        "id": "hot_pack",
+        "label": "Hot Pack",
+        "weight": 0.05,
+        "slot_overrides": {
+          "parallel": [
+            { "rarity": "rare", "weight": 0.55 },
+            { "rarity": "double_rare", "weight": 0.30 },
+            { "rarity": "ultra_rare", "weight": 0.12 },
+            { "rarity": "illustration_rare", "weight": 0.03 }
+          ],
+          "hit": [
+            { "rarity": "double_rare", "weight": 0.55 },
+            { "rarity": "ultra_rare", "weight": 0.28 },
+            { "rarity": "illustration_rare", "weight": 0.13 },
+            { "rarity": "special_illustration_rare", "weight": 0.035 },
+            { "rarity": "hyper_rare", "weight": 0.005 }
+          ]
+        }
+      },
+      {
+        "id": "god_pack",
+        "label": "God Pack",
+        "weight": 0.01,
+        "slot_overrides": {
+          "base_1": [
+            { "rarity": "rare", "weight": 0.50 },
+            { "rarity": "double_rare", "weight": 0.30 },
+            { "rarity": "ultra_rare", "weight": 0.15 },
+            { "rarity": "illustration_rare", "weight": 0.05 }
+          ],
+          "base_2": [
+            { "rarity": "double_rare", "weight": 0.50 },
+            { "rarity": "ultra_rare", "weight": 0.30 },
+            { "rarity": "illustration_rare", "weight": 0.20 }
+          ],
+          "base_3": [
+            { "rarity": "ultra_rare", "weight": 0.55 },
+            { "rarity": "illustration_rare", "weight": 0.35 },
+            { "rarity": "special_illustration_rare", "weight": 0.10 }
+          ],
+          "parallel": [
+            { "rarity": "illustration_rare", "weight": 0.65 },
+            { "rarity": "special_illustration_rare", "weight": 0.30 },
+            { "rarity": "hyper_rare", "weight": 0.05 }
+          ],
+          "hit": [
+            { "rarity": "special_illustration_rare", "weight": 0.80 },
+            { "rarity": "hyper_rare", "weight": 0.20 }
+          ]
+        }
+      }
+    ],
     "slots": [
       {
         "slot": "base_1",

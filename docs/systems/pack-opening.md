@@ -72,6 +72,16 @@ Model this as a compressed Scarlet & Violet-inspired structure. Current Pokemon 
 
 Use `pack_models.json` for shared slot structure and `rarities.json` for rarity labels, symbols, tiers, and color roles. Boxes should reference a pack model and override slot odds only where the product theme differs. Roll each slot from its own rarity table, store generated slot metadata on each card, and keep the `hit` slot last in trick reveal order. A flat pack-wide `rarity_table` may remain as fallback data only.
 
+Pack models may also define `pack_events`. Roll the pack event before individual slots:
+
+```text
+normal: default slot odds
+hot_pack: parallel and hit slots are stronger
+god_pack: multiple early slots upgrade into rare-or-better cards
+```
+
+Do not announce a hot or god pack before reveal. Let the repeated high-rarity drag tension create the first signal, then show the event tag on the result summary.
+
 ## Pack Selection
 
 The shop should feel like choosing a physical pack or box, not pressing a form button.
@@ -149,6 +159,8 @@ Ultra Rare and above: stronger resistance, border peek first, rarity/value/name 
 ```
 
 The goal is for the player to feel a hit before the full card is readable. Border color, pulse, and staged text reveal are valid Phase 1 signals.
+
+When the next card is high tier, the dragged card should resist early motion, expose the next card's border first, hold through the middle of the drag, then snap open near release. Common and uncommon cards should still slide quickly.
 
 ## Wrapper Motions
 

@@ -98,6 +98,7 @@ local generate_pack
 local generate_slot_pack
 local generate_flat_pack
 local pack_model_by_id
+local roll_pack_event
 local slot_rarity_table
 local build_reveal_order
 local strongest_card_index
@@ -110,6 +111,7 @@ local rarity_score
 local rarity_info
 local rarity_color
 local rarity_label
+local pack_event_label
 local sell_all
 local keep_all
 local after_pack_decision
@@ -138,6 +140,7 @@ local draw_current_reveal_card
 local draw_reveal_cards
 local draw_card
 local draw_card_back
+local draw_card_peek
 local draw_result_summary
 local draw_inventory
 local draw_footer
@@ -149,6 +152,7 @@ local draw_right_text
 local draw_fit_text
 local drag_progress
 local weighted_drag_progress
+local drag_profile
 local point_in_rect
 local fit_text
 
@@ -174,6 +178,7 @@ function _init()
     packs_remaining = 0,
     current_box = nil,
     pack_cards = {},
+    current_pack_event = nil,
     reveal_order = {},
     opening_style = "raw",
     revealed_cards = {},
@@ -422,7 +427,7 @@ function update_pack_drag()
       local reveal_card = State.revealed_cards[State.reveal_index + 1] or State.drag_card
       State.card_drag_progress = weighted_drag_progress(drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE), reveal_card)
       State.card_drag_x = STACK_CARD_X + math.floor(State.card_drag_progress * 72)
-      State.card_drag_y = STACK_CARD_Y
+      State.card_drag_y = STACK_CARD_Y - math.floor(drag_profile(reveal_card).lift * math.sin(State.card_drag_progress * math.pi))
     end
   elseif State.drag then
     if State.drag.kind == "tear" then
@@ -487,6 +492,11 @@ function start_pack(opening_style)
   opening_style = opening_style or (State.pack_side == "back" and "trick" or "raw")
   State.opening_style = opening_style
   State.pack_cards = generate_pack(State.current_box)
+  if #State.pack_cards > 0 then
+    State.current_pack_event = State.pack_cards[1].pack_event
+  else
+    State.current_pack_event = nil
+  end
   State.reveal_order = build_reveal_order(State.pack_cards, opening_style)
   State.revealed_cards = {}
   for _, card_index in ipairs(State.reveal_order) do
@@ -601,9 +611,10 @@ end
 
 function generate_slot_pack(pack, model)
   local result = {}
+  local event = roll_pack_event(model)
 
   for i, slot in ipairs(model.slots) do
-    local rarity = roll_rarity(slot_rarity_table(pack, slot))
+    local rarity = roll_rarity(slot_rarity_table(pack, slot, event))
     local pool = cards_by_rarity(rarity)
     local template = pool[math.random(1, #pool)]
     local value = roll_value(template.value_min, template.value_max)
@@ -617,6 +628,7 @@ function generate_slot_pack(pack, model)
       slot_index = i,
       slot_label = slot.label,
       treatment = slot.treatment,
+      pack_event = event,
     })
   end
 
@@ -633,7 +645,32 @@ function pack_model_by_id(model_id)
   return pack_models[1]
 end
 
-function slot_rarity_table(pack, slot)
+function roll_pack_event(model)
+  local events = model.pack_events
+  if events == nil then
+    return { id = "normal", label = "Normal Pack" }
+  end
+
+  local roll = math.random()
+  local cursor = 0
+
+  for _, event in ipairs(events) do
+    cursor = cursor + event.weight
+    if roll <= cursor then
+      return event
+    end
+  end
+
+  return events[#events]
+end
+
+function slot_rarity_table(pack, slot, event)
+  if event ~= nil
+    and event.slot_overrides ~= nil
+    and event.slot_overrides[slot.slot] ~= nil then
+    return event.slot_overrides[slot.slot]
+  end
+
   if pack.slot_overrides ~= nil and pack.slot_overrides[slot.slot] ~= nil then
     return pack.slot_overrides[slot.slot]
   end
@@ -775,11 +812,20 @@ function rarity_label(rarity)
   return info.symbol .. " " .. info.label
 end
 
+function pack_event_label(event)
+  if event == nil or event.id == nil or event.id == "normal" then
+    return nil
+  end
+
+  return event.label or event.id
+end
+
 function sell_all()
   State.money = State.money + State.last_pack_value
   State.pack_cards = {}
   State.reveal_order = {}
   State.revealed_cards = {}
+  State.current_pack_event = nil
   after_pack_decision("Sold $" .. State.last_pack_value .. ". Next?")
 end
 
@@ -791,6 +837,7 @@ function keep_all()
   State.pack_cards = {}
   State.reveal_order = {}
   State.revealed_cards = {}
+  State.current_pack_event = nil
   after_pack_decision("Kept " .. #State.inventory .. " cards.")
 end
 
@@ -1076,14 +1123,18 @@ end
 
 function draw_current_reveal_card()
   local card = State.revealed_cards[State.reveal_index]
+  local next_card = State.revealed_cards[State.reveal_index + 1]
   if card == nil then
     draw_card_back(STACK_CARD_X, STACK_CARD_Y)
     return
   end
 
   gfx.text("SLIDE RIGHT", 118, 52, COLOR.MUTED)
-  if State.reveal_index < #State.revealed_cards then
-    draw_card(State.revealed_cards[State.reveal_index + 1], STACK_CARD_X, STACK_CARD_Y, false)
+  if next_card ~= nil then
+    draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false)
+    if State.drag and State.drag.kind == "card" then
+      draw_card_peek(next_card, State.card_drag_progress)
+    end
   end
 
   if State.drag and State.drag.kind == "card" and State.drag_card ~= nil then
@@ -1126,6 +1177,21 @@ function draw_card(card, x, y, is_current)
   draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
 end
 
+function draw_card_peek(card, progress)
+  local profile = drag_profile(card)
+  if profile.peek <= 0 then
+    return
+  end
+
+  local color = rarity_color(card.rarity)
+  local inset = math.max(1, 5 - math.floor(progress * 4))
+  local shine = math.floor((usagi.elapsed * 10) % 2)
+  gfx.rect(STACK_CARD_X - inset, STACK_CARD_Y - inset, CARD_W + inset * 2, CARD_H + inset * 2, color)
+  if profile.peek >= 2 and shine == 1 then
+    gfx.rect(STACK_CARD_X + 3, STACK_CARD_Y + 3, CARD_W - 6, CARD_H - 6, color)
+  end
+end
+
 function draw_card_back(x, y)
   gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL_DARK)
   gfx.rect(x, y, CARD_W, CARD_H, COLOR.MUTED)
@@ -1133,7 +1199,12 @@ function draw_card_back(x, y)
 end
 
 function draw_result_summary()
+  local event_label = pack_event_label(State.current_pack_event)
+
   gfx.text("PACK RESULT", 16, 34, COLOR.TEXT)
+  if event_label ~= nil then
+    draw_right_text(event_label, 304, 34, COLOR.LEGENDARY)
+  end
   draw_reveal_cards()
 
   gfx.text("VALUE $" .. State.last_pack_value, TWO_BUTTONS_X, RESULT_VALUE_Y, COLOR.MONEY)
@@ -1216,22 +1287,39 @@ function drag_progress(distance, full_distance)
 end
 
 function weighted_drag_progress(raw, card)
-  local score = rarity_score(card)
+  local profile = drag_profile(card)
+  local score = profile.tier
 
   if score <= 2 then
     return raw
   end
 
-  if raw < 0.18 then
-    return raw * 0.72
-  elseif raw < 0.46 then
-    return 0.13 + (raw - 0.18) * 0.58
-  elseif raw < 0.74 then
-    return 0.29 + (raw - 0.46) * (score >= 4 and 0.48 or 0.62)
+  if raw < 0.20 then
+    return raw * profile.early
+  elseif raw < 0.52 then
+    return 0.20 * profile.early + (raw - 0.20) * profile.mid
+  elseif raw < 0.78 then
+    return profile.hold + (raw - 0.52) * profile.late
   end
 
-  local finish = 0.46 + (raw - 0.74) * (score >= 4 and 2.45 or 2.10)
+  local finish = profile.release + (raw - 0.78) * profile.snap
   return math.max(0, math.min(1, finish))
+end
+
+function drag_profile(card)
+  local tier = rarity_score(card)
+
+  if tier <= 2 then
+    return { tier = tier, early = 1.00, mid = 1.00, hold = 0.52, late = 1.00, release = 0.78, snap = 1.15, lift = 0, peek = 0 }
+  elseif tier <= 3 then
+    return { tier = tier, early = 0.72, mid = 0.68, hold = 0.36, late = 0.82, release = 0.58, snap = 2.25, lift = 2, peek = 1 }
+  elseif tier <= 4 then
+    return { tier = tier, early = 0.54, mid = 0.48, hold = 0.26, late = 0.62, release = 0.48, snap = 2.75, lift = 4, peek = 1 }
+  elseif tier <= 6 then
+    return { tier = tier, early = 0.38, mid = 0.34, hold = 0.19, late = 0.44, release = 0.36, snap = 3.35, lift = 6, peek = 2 }
+  end
+
+  return { tier = tier, early = 0.28, mid = 0.25, hold = 0.14, late = 0.34, release = 0.28, snap = 3.85, lift = 8, peek = 2 }
 end
 
 function point_in_rect(px, py, rect)
