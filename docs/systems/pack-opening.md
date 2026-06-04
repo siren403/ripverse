@@ -165,7 +165,7 @@ The opening interaction should keep one clear next action.
 ```text
 OPEN STYLE -> RAW / TRICK
 DRAG -> tear wrapper
-DRAG -> slide or flip next card
+DRAG -> slide next card right or flip stack
 SELL / KEEP -> after all cards are revealed
 ```
 

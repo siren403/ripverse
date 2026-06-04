@@ -41,6 +41,7 @@ local STACK_CARD_X = 118
 local STACK_CARD_Y = 70
 local DISCARD_CARD_X = 38
 local DISCARD_CARD_Y = 70
+local DRAG_COMMIT_DISTANCE = 58
 local TEAR_DISTANCE = 34
 local CARD_PAD_X = 5
 local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
@@ -325,7 +326,7 @@ function update_pack_drag()
 
   if input.mouse_pressed(input.MOUSE_LEFT) then
     if State.reveal_phase == "wrapper" and point_in_rect(mx, my, { x = 126, y = 58, w = 68, h = 88 }) then
-      State.drag = { kind = "tear", start_y = my }
+      State.drag = { kind = "tear", start_x = mx }
     elseif State.reveal_phase == "trick_stack" and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y - 8, w = CARD_W + 8, h = CARD_H + 8 }) then
       State.drag = { kind = "trick", start_x = mx }
       State.card_drag_x = STACK_CARD_X
@@ -349,18 +350,18 @@ function update_pack_drag()
 
   if State.drag and input.mouse_held(input.MOUSE_LEFT) then
     if State.drag.kind == "tear" then
-      State.tear_progress = math.max(0, math.min(1, (my - State.drag.start_y) / TEAR_DISTANCE))
+      State.tear_progress = drag_progress(math.abs(mx - State.drag.start_x), TEAR_DISTANCE)
     elseif State.drag.kind == "trick" then
-      State.card_drag_progress = drag_progress(State.drag.start_x - mx, 54)
-      State.card_drag_x = STACK_CARD_X - math.floor(weighted_drag_progress(State.card_drag_progress, nil) * 60)
+      State.card_drag_progress = drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE)
+      State.card_drag_x = STACK_CARD_X + math.floor(weighted_drag_progress(State.card_drag_progress, nil) * 60)
       State.card_drag_y = STACK_CARD_Y
     elseif State.drag.kind == "card" then
-      State.card_drag_progress = weighted_drag_progress(drag_progress(State.drag.start_x - mx, 58), State.drag_card)
-      State.card_drag_x = STACK_CARD_X - math.floor(State.card_drag_progress * 72)
+      State.card_drag_progress = weighted_drag_progress(drag_progress(mx - State.drag.start_x, DRAG_COMMIT_DISTANCE), State.drag_card)
+      State.card_drag_x = STACK_CARD_X + math.floor(State.card_drag_progress * 72)
       State.card_drag_y = STACK_CARD_Y
     elseif State.drag.kind == "finish" then
-      State.card_drag_progress = drag_progress(State.drag.start_x - mx, 46)
-      State.card_drag_x = DISCARD_CARD_X - math.floor(State.card_drag_progress * 42)
+      State.card_drag_progress = drag_progress(mx - State.drag.start_x, 46)
+      State.card_drag_x = DISCARD_CARD_X + math.floor(State.card_drag_progress * 42)
       State.card_drag_y = DISCARD_CARD_Y
     end
   elseif State.drag then
@@ -488,6 +489,15 @@ end
 
 function update_reveal(dt)
   State.reveal_timer = State.reveal_timer + dt
+
+  if State.screen == "pack_reveal"
+    and State.reveal_phase == "card_reveal"
+    and State.reveal_index >= #State.revealed_cards
+    and State.reveal_timer >= 0.75 then
+    State.screen = "result_summary"
+    State.reveal_phase = "idle"
+    State.message = "Sell or keep."
+  end
 end
 
 function generate_pack(box)
@@ -755,28 +765,30 @@ end
 function draw_pack_wrapper()
   local pulse = math.floor(State.reveal_timer * 10) % 2
   local color = COLOR.RARE
-  local tear_y = math.floor(State.tear_progress * TEAR_DISTANCE)
+  local tear_x = math.floor(State.tear_progress * TEAR_DISTANCE)
 
   if pulse == 1 then
     color = COLOR.LEGENDARY
   end
 
   if State.opening_style == "trick" then
-    local seam_w = math.max(2, math.floor(State.tear_progress * 18))
+    local seam_w = math.max(2, math.floor(State.tear_progress * 26))
     gfx.rect_fill(126, 58, 68, 88, COLOR.PANEL_DARK)
     gfx.rect_ex(126, 58, 68, 88, 3, color)
-    gfx.rect_fill(160 - math.floor(seam_w / 2), 58, seam_w, 88, COLOR.PANEL)
+    gfx.rect_fill(160 - seam_w, 58, seam_w, 88, COLOR.PANEL)
+    gfx.rect_fill(160, 58, seam_w, 88, COLOR.PANEL)
     gfx.rect(158, 62, 4, 80, COLOR.MUTED)
     gfx.text("BACK", 146, 82, COLOR.TEXT)
     gfx.text("SEAM", 144, 102, color)
-    gfx.text("PULL DOWN", 128, 128, COLOR.MUTED)
+    gfx.text("PULL SIDE", 128, 128, COLOR.MUTED)
   else
-    gfx.rect_fill(126, 58 + tear_y, 68, 88 - tear_y, COLOR.PANEL)
-    gfx.rect_ex(126, 58 + tear_y, 68, 88 - tear_y, 3, color)
-    gfx.rect_fill(126, 58, 68, math.max(8, tear_y), COLOR.PANEL_DARK)
+    gfx.rect_fill(126, 58, 68, 88, COLOR.PANEL)
+    gfx.rect_ex(126, 58, 68, 88, 3, color)
+    gfx.rect_fill(126, 58, tear_x, 17, COLOR.PANEL_DARK)
+    gfx.rect_fill(194 - tear_x, 58, tear_x, 17, COLOR.PANEL_DARK)
     gfx.rect(126, 72, 68, 2, COLOR.MUTED)
-    gfx.text("GENESIS", 142, 82 + math.floor(tear_y / 2), COLOR.TEXT)
-    gfx.text("PACK", 150, 100 + math.floor(tear_y / 2), color)
+    gfx.text("GENESIS", 142, 82, COLOR.TEXT)
+    gfx.text("PACK", 150, 100, color)
     gfx.text("TOP TEAR", 132, 128, COLOR.MUTED)
   end
 end
@@ -787,7 +799,7 @@ function draw_pack_stack()
     gfx.rect_fill(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.PANEL_DARK)
     gfx.rect(STACK_CARD_X + 8, STACK_CARD_Y - 8, CARD_W, CARD_H, COLOR.RARE)
   else
-    gfx.text("SLIDE LEFT", 122, 52, COLOR.MUTED)
+    gfx.text("SLIDE RIGHT", 118, 52, COLOR.MUTED)
   end
 
   draw_card_back(STACK_CARD_X, STACK_CARD_Y)
