@@ -36,6 +36,10 @@ Deprioritize for the initial MVP:
 - complex economies
 - meta competition
 
+## Design System
+
+Use `DESIGN.md` when adding or changing gameplay UI. Keep the Phase 1 playground compact, pixel-oriented, and anchored to the next pack action. Button labels must fit inside their borders; put input hints and guidance in the footer instead of inside buttons.
+
 ## Playground Policy
 
 Treat the playground as a fast feel-validation space, not as a final architecture commitment.

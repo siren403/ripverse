@@ -38,9 +38,9 @@ local HITBOX = {
   box_inventory = { x = 178, y = 136, w = BUTTON_W, h = HIT_H },
   pack_open = { x = 32, y = 136, w = BUTTON_W, h = HIT_H },
   pack_inventory = { x = 190, y = 136, w = BUTTON_W, h = HIT_H },
-  result_sell = { x = 24, y = 158, w = BUTTON_W, h = HIT_H },
-  result_keep = { x = 172, y = 158, w = BUTTON_W, h = HIT_H },
-  inventory_back = { x = 92, y = 164, w = BUTTON_W, h = HIT_H },
+  result_sell = { x = 24, y = 148, w = BUTTON_W, h = HIT_H },
+  result_keep = { x = 172, y = 148, w = BUTTON_W, h = HIT_H },
+  inventory_back = { x = 92, y = 148, w = BUTTON_W, h = HIT_H },
 }
 
 local advance_primary
@@ -73,6 +73,7 @@ local draw_card_back
 local draw_result_summary
 local draw_inventory
 local draw_footer
+local footer_hint
 local draw_panel
 local draw_button
 local point_in_rect
@@ -102,7 +103,7 @@ function _init()
     cards_seen = 0,
     last_pack_value = 0,
     transition_timer = 0,
-    message = "Buy a box to start ripping.",
+    message = "Buy a box.",
   }
 end
 
@@ -234,7 +235,7 @@ function open_pack()
   State.reveal_timer = 0
   State.reveal_phase = "closed_pack"
   State.last_pack_value = total_value(State.revealed_cards)
-  State.message = "Ripping pack..."
+  State.message = "Ripping..."
   State.screen = "pack_reveal"
 end
 
@@ -256,7 +257,7 @@ function update_reveal(dt)
     if State.reveal_index >= #State.revealed_cards then
       State.screen = "result_summary"
       State.reveal_phase = "idle"
-      State.message = "Sell for money or keep for collection."
+      State.message = "Sell or keep."
     else
       State.reveal_phase = "card_back"
       State.reveal_timer = 0
@@ -345,7 +346,7 @@ end
 function sell_all()
   State.money = State.money + State.last_pack_value
   State.revealed_cards = {}
-  after_pack_decision("Sold pack for $" .. State.last_pack_value .. ".")
+  after_pack_decision("Sold $" .. State.last_pack_value .. ". Next?")
 end
 
 function keep_all()
@@ -354,7 +355,7 @@ function keep_all()
   end
 
   State.revealed_cards = {}
-  after_pack_decision("Kept cards. Collection +" .. #State.inventory .. " total.")
+  after_pack_decision("Kept " .. #State.inventory .. " cards.")
 end
 
 function after_pack_decision(message)
@@ -390,11 +391,12 @@ end
 
 function draw_header()
   gfx.rect_fill(0, 0, 320, 24, COLOR.PANEL_DARK)
-  gfx.text("RIPVERSE", 8, 6, COLOR.TEXT)
-  gfx.text("$" .. State.money, 84, 6, COLOR.MONEY)
-  gfx.text("BOX " .. State.box_count_opened, 142, 6, COLOR.MUTED)
-  gfx.text("PACK " .. State.pack_count_opened, 196, 6, COLOR.MUTED)
-  gfx.text("INV " .. #State.inventory, 270, 6, COLOR.MUTED)
+  gfx.text("RIP", 8, 6, COLOR.TEXT)
+  gfx.text("$" .. State.money, 48, 6, COLOR.MONEY)
+  gfx.text("B" .. State.box_count_opened, 112, 6, COLOR.MUTED)
+  gfx.text("P" .. State.pack_count_opened, 154, 6, COLOR.MUTED)
+  gfx.text("C" .. State.cards_seen, 196, 6, COLOR.MUTED)
+  gfx.text("K" .. #State.inventory, 270, 6, COLOR.MUTED)
 end
 
 function draw_box_shop()
@@ -403,11 +405,11 @@ function draw_box_shop()
   draw_panel(18, 38, 284, 86)
   gfx.text("BOX SHOP", 32, 48, COLOR.TEXT)
   gfx.text(box.name, 32, 68, COLOR.MONEY)
-  gfx.text("Price $" .. box.price .. " / " .. box.pack_count .. " packs", 32, 84, COLOR.MUTED)
-  gfx.text("Genesis set / 5 cards per pack", 32, 100, COLOR.MUTED)
+  gfx.text("$" .. box.price .. " / " .. box.pack_count .. " packs", 32, 84, COLOR.MUTED)
+  gfx.text("Genesis / 5 cards each", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "CLICK / BTN1  BUY", COLOR.GOOD)
-  draw_button(178, 136, "CLICK / BTN2  INV", COLOR.MUTED)
+  draw_button(32, 136, "BUY", COLOR.GOOD)
+  draw_button(178, 136, "INV", COLOR.RARE)
 end
 
 function draw_box_opening()
@@ -429,11 +431,11 @@ function draw_pack_select()
   draw_panel(18, 38, 284, 86)
   gfx.text("OPENED BOX", 32, 48, COLOR.TEXT)
   gfx.text("Packs remaining: " .. State.packs_remaining, 32, 68, COLOR.MONEY)
-  gfx.text("Each pack reveals 5 cards.", 32, 84, COLOR.MUTED)
-  gfx.text("Open the next pack and chase the spike.", 32, 100, COLOR.MUTED)
+  gfx.text("5 cards per pack", 32, 84, COLOR.MUTED)
+  gfx.text("Open the next one.", 32, 100, COLOR.MUTED)
 
-  draw_button(32, 136, "CLICK / BTN1  OPEN", COLOR.GOOD)
-  draw_button(190, 136, "CLICK / BTN2  INV", COLOR.MUTED)
+  draw_button(32, 136, "OPEN", COLOR.GOOD)
+  draw_button(190, 136, "INV", COLOR.RARE)
 end
 
 function draw_pack_reveal()
@@ -498,9 +500,9 @@ function draw_result_summary()
   gfx.text("PACK RESULT", 16, 34, COLOR.TEXT)
   draw_reveal_cards()
 
-  gfx.text("Total value $" .. State.last_pack_value, 24, 144, COLOR.MONEY)
-  draw_button(24, 158, "CLICK / BTN1  SELL", COLOR.GOOD)
-  draw_button(172, 158, "CLICK / BTN2  KEEP", COLOR.RARE)
+  gfx.text("Value $" .. State.last_pack_value, 24, 140, COLOR.MONEY)
+  draw_button(24, 148, "SELL", COLOR.GOOD)
+  draw_button(172, 148, "KEEP", COLOR.RARE)
 end
 
 function draw_inventory()
@@ -521,11 +523,26 @@ function draw_inventory()
     end
   end
 
-  draw_button(92, 164, "CLICK / BTN1  BACK", COLOR.GOOD)
+  draw_button(92, 148, "BACK", COLOR.GOOD)
 end
 
 function draw_footer()
-  gfx.text(State.message, 8, 170, COLOR.MUTED)
+  gfx.text(State.message, 8, 168, COLOR.MUTED)
+  gfx.text(footer_hint(), 176, 168, COLOR.MUTED)
+end
+
+function footer_hint()
+  if State.screen == "box_shop" then
+    return "click/enter buy"
+  elseif State.screen == "pack_select" then
+    return "click/enter open"
+  elseif State.screen == "result_summary" then
+    return "enter sell / space keep"
+  elseif State.screen == "inventory" then
+    return "click/enter back"
+  end
+
+  return ""
 end
 
 function draw_panel(x, y, w, h)
