@@ -10,6 +10,23 @@ local COLORS = {
   gfx.COLOR_PINK,
   gfx.COLOR_PEACH,
 }
+local TYPE_COLORS = {
+  spark = gfx.COLOR_YELLOW,
+  moss = gfx.COLOR_GREEN,
+  tide = gfx.COLOR_BLUE,
+  ember = gfx.COLOR_ORANGE,
+  void = gfx.COLOR_PINK,
+  alloy = gfx.COLOR_LIGHT_GRAY,
+}
+local CARD_TEMPLATES = {
+  { name = "Voltkit", type = "spark", hp = "070", move = "Arc Bite", rare = "*" },
+  { name = "Mosslug", type = "moss", hp = "080", move = "Leaf Roll", rare = "*" },
+  { name = "Tidefin", type = "tide", hp = "090", move = "Foam Cut", rare = "**" },
+  { name = "Cinderox", type = "ember", hp = "110", move = "Heat Rush", rare = "**" },
+  { name = "Nullowl", type = "void", hp = "130", move = "Night Loop", rare = "***" },
+  { name = "Gearcub", type = "alloy", hp = "100", move = "Bolt Guard", rare = "**" },
+  { name = "Astrabbit", type = "spark", hp = "160", move = "Star Rip", rare = "***" },
+}
 
 local CUBE_VERTS = {
   { -1, -1, -1 }, { 1, -1, -1 }, { 1, 1, -1 }, { -1, 1, -1 },
@@ -81,6 +98,7 @@ function _init()
       slot = i,
       display_slot = i,
       tier = i,
+      template = CARD_TEMPLATES[((i - 1) % #CARD_TEMPLATES) + 1],
     })
   end
 
@@ -309,29 +327,24 @@ function draw_pack_wrapper(pack)
   local w = PACK_W * pulse
   local x = PACK_X + (PACK_W - w) / 2
 
-  gfx.rect_fill(x, PACK_Y, w, PACK_H, gfx.COLOR_DARK_BLUE)
-  gfx.rect_ex(x, PACK_Y, w, PACK_H, 3, color)
+  draw_booster_shell(x, PACK_Y, w, PACK_H, pack.side, color)
 
   if pack.side == "back" then
     local seam_h = PACK_H - 18
     local open_h = seam_h * pack.tear
-    gfx.text("BACK", PACK_X + 19, PACK_Y + 22, gfx.COLOR_WHITE)
-    gfx.text("SEAM", PACK_X + 17, PACK_Y + 43, color)
     gfx.rect(PACK_X + PACK_W / 2 - 2, PACK_Y + 9, 4, seam_h, gfx.COLOR_LIGHT_GRAY)
     gfx.rect_fill(PACK_X + PACK_W / 2 - 3, PACK_Y + 9, 6, open_h, color)
     draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + 8, 12, open_h, color)
     if pack.drag ~= nil then
       gfx.line_ex(pack.drag.x, pack.drag.y, pack.drag.x, pack.drag.y + open_h, 2, color)
     end
-    gfx.text("PULL DOWN", PACK_X + 4, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
+    gfx.text("PULL", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
   else
     local tear_w = PACK_W * pack.tear
     local tear_x = PACK_X
     if pack.drag ~= nil and pack.drag.dir < 0 then
       tear_x = PACK_X + PACK_W - tear_w
     end
-    gfx.text("RIP", PACK_X + 27, PACK_Y + 24, gfx.COLOR_WHITE)
-    gfx.text("PACK", PACK_X + 20, PACK_Y + 46, color)
     gfx.rect(PACK_X + 6, PACK_Y + 14, PACK_W - 12, 3, gfx.COLOR_LIGHT_GRAY)
     gfx.rect_fill(tear_x, PACK_Y + 8, tear_w, 13, color)
     draw_torn_strip(tear_x, PACK_Y + 6, tear_w, 9, gfx.COLOR_ORANGE)
@@ -341,6 +354,31 @@ function draw_pack_wrapper(pack)
     end
     gfx.text("TOP TEAR", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
   end
+end
+
+function draw_booster_shell(x, y, w, h, side, color)
+  gfx.rect_fill(x, y, w, h, gfx.COLOR_DARK_BLUE)
+  gfx.rect_ex(x, y, w, h, 3, color)
+  gfx.rect_fill(x + 5, y + 8, w - 10, 10, gfx.COLOR_DARK_PURPLE)
+  gfx.rect(x + 5, y + 8, w - 10, 10, color)
+
+  if side == "back" then
+    gfx.text("RIP", x + 8, y + 14, gfx.COLOR_TRUE_WHITE)
+    gfx.text("VERSE", x + 8, y + 27, color)
+    gfx.rect(x + 9, y + 47, w - 18, 16, gfx.COLOR_LIGHT_GRAY)
+    for i = 0, 5 do
+      gfx.line(x + 13 + i * 7, y + 49, x + 13 + i * 7, y + 61, i % 2 == 0 and color or gfx.COLOR_LIGHT_GRAY)
+    end
+    gfx.text("SEAM", x + 19, y + 70, color)
+    return
+  end
+
+  gfx.text("RIP", x + 24, y + 17, gfx.COLOR_TRUE_WHITE)
+  gfx.text("MON", x + 22, y + 30, color)
+  gfx.circ_fill(x + w / 2, y + 54, 15, color)
+  gfx.circ(x + w / 2, y + 54, 22, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x + w / 2 - 13, y + 56, x + w / 2 + 13, y + 44, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x + w / 2 - 13, y + 64, x + w / 2 + 13, y + 52, gfx.COLOR_LIGHT_GRAY)
 end
 
 function draw_torn_strip(x, y, w, h, color)
@@ -359,30 +397,39 @@ function draw_stack_trick(t)
   local eased = ease_out_circ(t)
   gfx.text("CARD TRICK", 108, 44, gfx.COLOR_LIGHT_GRAY)
 
-  draw_mini_card(132, 70, gfx.COLOR_BLUE, "BACK")
-  draw_mini_card(136 + eased * 42, 76, gfx.COLOR_PINK, "MOVE")
-  draw_mini_card(142 + eased * 52, 84, gfx.COLOR_YELLOW, "MOVE")
+  draw_mini_card(132, 70, gfx.COLOR_BLUE, "BACK", nil, true)
+  draw_mini_card(136 + eased * 42, 76, gfx.COLOR_PINK, "MOVE", nil, true)
+  draw_mini_card(142 + eased * 52, 84, gfx.COLOR_YELLOW, "MOVE", nil, true)
 
   local flip = math.min(1, math.max(0, (t - 0.58) / 0.42))
   local flip_w = math.max(8, MINI_CARD_W * math.abs(1 - flip * 2))
-  draw_mini_card(132 + (MINI_CARD_W - flip_w) / 2, 70 - flip * 16, gfx.COLOR_GREEN, flip < 0.5 and "BACK" or "FACE", flip_w)
+  draw_mini_card(132 + (MINI_CARD_W - flip_w) / 2, 70 - flip * 16, gfx.COLOR_GREEN, flip < 0.5 and "BACK" or "FACE", flip_w, flip < 0.5)
 end
 
 function draw_pack_cards(side)
   local rare_t = 0.35 + math.sin(State.t * 4) * 0.08
   gfx.text(side == "back" and "TRICK REVEAL" or "RAW REVEAL", 102, 44, gfx.COLOR_LIGHT_GRAY)
-  draw_mini_card(126, 72, gfx.COLOR_DARK_PURPLE, "NEXT")
-  draw_mini_card(118 + rare_t * 20, 66, gfx.COLOR_YELLOW, "SLIDE")
+  draw_mini_card(126, 72, gfx.COLOR_DARK_PURPLE, "NEXT", nil, true)
+  draw_mini_card(118 + rare_t * 20, 66, gfx.COLOR_YELLOW, "SLIDE", nil, false)
   gfx.rect(114, 62, 60 + rare_t * 18, 70, gfx.COLOR_ORANGE)
   gfx.text("CLUE", 138, 139, gfx.COLOR_YELLOW)
 end
 
-function draw_mini_card(x, y, color, label, width)
+function draw_mini_card(x, y, color, label, width, is_back)
   local w = width or MINI_CARD_W
+  local template = CARD_TEMPLATES[5]
   gfx.rect_fill(x, y, w, MINI_CARD_H, gfx.COLOR_DARK_BLUE)
   gfx.rect_ex(x, y, w, MINI_CARD_H, 2, color)
-  if w > 22 then
-    gfx.text(label, x + 6, y + 24, color)
+  if w <= 22 then
+    return
+  end
+
+  if is_back then
+    gfx.circ(x + w / 2, y + MINI_CARD_H / 2, 12, color)
+    gfx.line(x + 8, y + 12, x + w - 8, y + MINI_CARD_H - 12, color)
+    gfx.text(label, x + 7, y + 24, color)
+  else
+    draw_card_face_labels(x, y, w, MINI_CARD_H, template, color)
   end
 end
 
@@ -401,6 +448,7 @@ function draw_card_orbit()
       tilt_x = State.drag.tilt_x,
       tilt_y = State.drag.tilt_y,
       color = State.drag.color,
+      template = State.drag.template,
       depth = 1.15,
     }
   elseif State.returning ~= nil then
@@ -413,13 +461,13 @@ function draw_card_orbit()
 
   for _, item in ipairs(draw_list) do
     if active == nil or item.index ~= active.index then
-      draw_rot_card(item.x, item.y, item.w, item.h, item.angle, item.color, item.depth)
+      draw_rot_card(item.x, item.y, item.w, item.h, item.angle, item.color, item.depth, item.template)
     end
   end
 
   if active ~= nil then
     draw_card_shadow(active.x, active.y, active.w, active.h, active.angle, active.tilt_x or 0, active.tilt_y or 0)
-    draw_tilted_card(active.x, active.y, active.w, active.h, active.angle, active.tilt_x or 0, active.tilt_y or 0, active.color, active.depth)
+    draw_tilted_card(active.x, active.y, active.w, active.h, active.angle, active.tilt_x or 0, active.tilt_y or 0, active.color, active.depth, active.template)
     gfx.text("DRAG", active.x + 2, active.y + active.h + 4, active.color)
   end
 end
@@ -459,6 +507,7 @@ function build_card_draw_list()
       h = h,
       angle = angle,
       color = color,
+      template = card.template,
     })
 
     ::continue::
@@ -538,6 +587,7 @@ function update_card_drag(dt)
         prev_target_x = hit.cx - DRAG_CARD_W / 2,
         prev_target_y = hit.cy - DRAG_CARD_H / 2,
         color = hit.color,
+        template = hit.template,
       }
       State.returning = nil
     end
@@ -593,6 +643,7 @@ function update_card_drag(dt)
       from_tilt_x = State.drag.tilt_x,
       from_tilt_y = State.drag.tilt_y,
       color = State.drag.color,
+      template = State.drag.template,
       t = 0,
     }
     State.drag = nil
@@ -634,6 +685,7 @@ function return_card_item()
     tilt_x = lerp(returning.from_tilt_x, 0, t),
     tilt_y = lerp(returning.from_tilt_y, 0, t),
     color = returning.color,
+    template = returning.template,
     depth = 1.12,
   }
 end
@@ -654,6 +706,23 @@ function point_in_rect(px, py, x, y, w, h)
   return px >= x and px <= x + w and py >= y and py <= y + h
 end
 
+function fit_label(text, max_w)
+  if usagi.measure_text(text) <= max_w then
+    return text
+  end
+
+  local result = ""
+  for i = 1, #text do
+    local candidate = string.sub(text, 1, i)
+    if usagi.measure_text(candidate .. ".") > max_w then
+      break
+    end
+    result = candidate
+  end
+
+  return result .. "."
+end
+
 function ease_out_back(t)
   local c1 = 1.70158
   local c3 = c1 + 1
@@ -667,31 +736,57 @@ function ease_out_circ(t)
   return math.sqrt(1 - p * p)
 end
 
-function draw_rot_card(x, y, w, h, angle, color, depth)
+function draw_rot_card(x, y, w, h, angle, color, depth, template)
+  template = template or CARD_TEMPLATES[1]
+  local type_color = TYPE_COLORS[template.type] or color
   local x1, y1, x2, y2, x3, y3, x4, y4 = rot_points(x, y, w, h, angle)
   local fill = depth > 0.72 and gfx.COLOR_DARK_BLUE or gfx.COLOR_DARK_PURPLE
   gfx.tri_fill(x1, y1, x2, y2, x3, y3, fill)
   gfx.tri_fill(x1, y1, x3, y3, x4, y4, fill)
-  gfx.line_ex(x1, y1, x2, y2, depth > 0.8 and 3 or 1, color)
-  gfx.line_ex(x2, y2, x3, y3, depth > 0.8 and 3 or 1, color)
-  gfx.line_ex(x3, y3, x4, y4, depth > 0.8 and 3 or 1, color)
-  gfx.line_ex(x4, y4, x1, y1, depth > 0.8 and 3 or 1, color)
-  gfx.line(x1 + 4, y1 + 9, x2 - 4, y2 + 9, gfx.COLOR_LIGHT_GRAY)
-  gfx.line(x4 + 4, y4 - 10, x3 - 4, y3 - 10, color)
+  gfx.line_ex(x1, y1, x2, y2, depth > 0.8 and 3 or 1, type_color)
+  gfx.line_ex(x2, y2, x3, y3, depth > 0.8 and 3 or 1, type_color)
+  gfx.line_ex(x3, y3, x4, y4, depth > 0.8 and 3 or 1, type_color)
+  gfx.line_ex(x4, y4, x1, y1, depth > 0.8 and 3 or 1, type_color)
+  gfx.line(x1 + 4, y1 + 8, x2 - 4, y2 + 8, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x4 + 4, y4 - 11, x3 - 4, y3 - 11, type_color)
+  gfx.line(x1 + 6, y1 + h * 0.32, x2 - 6, y2 + h * 0.29, type_color)
+  gfx.line(x1 + 7, y1 + h * 0.56, x2 - 7, y2 + h * 0.53, gfx.COLOR_LIGHT_GRAY)
+  if depth > 0.82 and w > 22 then
+    gfx.text(fit_label(template.name, w - 12), x + 5, y + 6, gfx.COLOR_TRUE_WHITE)
+    gfx.text(template.rare, x + w - 15, y + h - 11, type_color)
+  end
 end
 
-function draw_tilted_card(x, y, w, h, angle, tilt_x, tilt_y, color, depth)
+function draw_tilted_card(x, y, w, h, angle, tilt_x, tilt_y, color, depth, template)
+  template = template or CARD_TEMPLATES[1]
+  local type_color = TYPE_COLORS[template.type] or color
   local x1, y1, x2, y2, x3, y3, x4, y4 = tilted_points(x, y, w, h, angle, tilt_x, tilt_y)
   local fill = gfx.COLOR_DARK_BLUE
   gfx.tri_fill(x1, y1, x2, y2, x3, y3, fill)
   gfx.tri_fill(x1, y1, x3, y3, x4, y4, fill)
-  gfx.line_ex(x1, y1, x2, y2, 3, color)
-  gfx.line_ex(x2, y2, x3, y3, 3, color)
-  gfx.line_ex(x3, y3, x4, y4, 3, color)
-  gfx.line_ex(x4, y4, x1, y1, 3, color)
-  gfx.line(x1 + 5, y1 + 10, x2 - 5, y2 + 7, gfx.COLOR_LIGHT_GRAY)
-  gfx.line(x4 + 5, y4 - 9, x3 - 5, y3 - 12, color)
-  gfx.line(x1 + 7, y1 + h * 0.45, x2 - 7, y2 + h * 0.42, gfx.COLOR_BLUE)
+  gfx.line_ex(x1, y1, x2, y2, 3, type_color)
+  gfx.line_ex(x2, y2, x3, y3, 3, type_color)
+  gfx.line_ex(x3, y3, x4, y4, 3, type_color)
+  gfx.line_ex(x4, y4, x1, y1, 3, type_color)
+  gfx.line(x1 + 5, y1 + 9, x2 - 5, y2 + 7, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x1 + 5, y1 + 23, x2 - 5, y2 + 20, type_color)
+  gfx.line(x4 + 5, y4 - 9, x3 - 5, y3 - 12, type_color)
+  gfx.line(x1 + 7, y1 + h * 0.50, x2 - 7, y2 + h * 0.46, gfx.COLOR_LIGHT_GRAY)
+  draw_card_face_labels(x, y, w, h, template, type_color)
+end
+
+function draw_card_face_labels(x, y, w, h, template, type_color)
+  if w < 28 then
+    return
+  end
+
+  gfx.text(fit_label(template.name, w - 26), x + 4, y + 5, gfx.COLOR_TRUE_WHITE)
+  gfx.text(template.hp, x + w - 22, y + 5, type_color)
+  gfx.rect(x + 5, y + 17, w - 10, h * 0.36, type_color)
+  gfx.circ_fill(x + w / 2, y + 28, 7, type_color)
+  gfx.circ(x + w / 2, y + 28, 11, gfx.COLOR_TRUE_WHITE)
+  gfx.text(fit_label(template.move, w - 10), x + 5, y + h - 20, gfx.COLOR_TRUE_WHITE)
+  gfx.text(template.rare, x + w - 18, y + h - 10, type_color)
 end
 
 function draw_card_shadow(x, y, w, h, angle, tilt_x, tilt_y)
