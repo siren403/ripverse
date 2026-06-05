@@ -45,6 +45,7 @@ local PACK_X = 124
 local PACK_Y = 50
 local PACK_W = 72
 local PACK_H = 94
+local CRIMP_H = 10
 local MINI_CARD_W = 42
 local MINI_CARD_H = 58
 local UI_BUTTON_H = 16
@@ -259,8 +260,8 @@ function update_pack_stage(dt)
 
   if State.ui_drag == nil
     and pack.drag == nil
-    and input.mouse_pressed(input.MOUSE_LEFT)
-    and point_in_rect(mx, my, PACK_X - 12, PACK_Y - 12, PACK_W + 24, PACK_H + 24) then
+    and input.mouse_held(input.MOUSE_LEFT)
+    and point_in_rect(mx, my, PACK_X - 16, PACK_Y - 16, PACK_W + 32, PACK_H + 32) then
     pack.drag = {
       x = mx,
       y = my,
@@ -332,9 +333,9 @@ function draw_pack_wrapper(pack)
   if pack.side == "back" then
     local seam_h = PACK_H - 18
     local open_h = seam_h * pack.tear
-    gfx.rect(PACK_X + PACK_W / 2 - 2, PACK_Y + 9, 4, seam_h, gfx.COLOR_LIGHT_GRAY)
-    gfx.rect_fill(PACK_X + PACK_W / 2 - 3, PACK_Y + 9, 6, open_h, color)
-    draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + 8, 12, open_h, color)
+    gfx.rect(PACK_X + PACK_W / 2 - 3, PACK_Y + CRIMP_H + 3, 6, seam_h - 8, gfx.COLOR_LIGHT_GRAY)
+    gfx.rect_fill(PACK_X + PACK_W / 2 - 4, PACK_Y + CRIMP_H + 3, 8, open_h, color)
+    draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + CRIMP_H + 4, 12, open_h, color)
     if pack.drag ~= nil then
       gfx.line_ex(pack.drag.x, pack.drag.y, pack.drag.x, pack.drag.y + open_h, 2, color)
     end
@@ -345,9 +346,9 @@ function draw_pack_wrapper(pack)
     if pack.drag ~= nil and pack.drag.dir < 0 then
       tear_x = PACK_X + PACK_W - tear_w
     end
-    gfx.rect(PACK_X + 6, PACK_Y + 14, PACK_W - 12, 3, gfx.COLOR_LIGHT_GRAY)
-    gfx.rect_fill(tear_x, PACK_Y + 8, tear_w, 13, color)
-    draw_torn_strip(tear_x, PACK_Y + 6, tear_w, 9, gfx.COLOR_ORANGE)
+    gfx.rect(PACK_X + 8, PACK_Y + CRIMP_H + 4, PACK_W - 16, 3, gfx.COLOR_LIGHT_GRAY)
+    gfx.rect_fill(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 6, color)
+    draw_torn_strip(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 3, gfx.COLOR_ORANGE)
     if pack.drag ~= nil then
       local guide_x = pack.drag.dir < 0 and pack.drag.x - tear_w or pack.drag.x + tear_w
       gfx.line_ex(pack.drag.x, pack.drag.y, guide_x, pack.drag.y, 2, color)
@@ -359,26 +360,43 @@ end
 function draw_booster_shell(x, y, w, h, side, color)
   gfx.rect_fill(x, y, w, h, gfx.COLOR_DARK_BLUE)
   gfx.rect_ex(x, y, w, h, 3, color)
-  gfx.rect_fill(x + 5, y + 8, w - 10, 10, gfx.COLOR_DARK_PURPLE)
-  gfx.rect(x + 5, y + 8, w - 10, 10, color)
+  draw_crimp_band(x, y, w, CRIMP_H, color)
+  draw_crimp_band(x, y + h - CRIMP_H, w, CRIMP_H, color)
 
   if side == "back" then
-    gfx.text("RIP", x + 8, y + 14, gfx.COLOR_TRUE_WHITE)
-    gfx.text("VERSE", x + 8, y + 27, color)
-    gfx.rect(x + 9, y + 47, w - 18, 16, gfx.COLOR_LIGHT_GRAY)
+    local seam_x = x + w / 2 - 5
+    gfx.text("RIP", x + 8, y + 18, gfx.COLOR_TRUE_WHITE)
+    gfx.text("VERSE", x + 8, y + 31, color)
+    gfx.rect_fill(seam_x, y + CRIMP_H + 4, 10, h - CRIMP_H * 2 - 8, gfx.COLOR_DARK_PURPLE)
+    gfx.line(seam_x, y + CRIMP_H + 4, seam_x, y + h - CRIMP_H - 4, gfx.COLOR_LIGHT_GRAY)
+    gfx.line(seam_x + 10, y + CRIMP_H + 4, seam_x + 10, y + h - CRIMP_H - 4, gfx.COLOR_LIGHT_GRAY)
+    gfx.rect(x + 9, y + 48, w - 18, 15, gfx.COLOR_LIGHT_GRAY)
     for i = 0, 5 do
-      gfx.line(x + 13 + i * 7, y + 49, x + 13 + i * 7, y + 61, i % 2 == 0 and color or gfx.COLOR_LIGHT_GRAY)
+      gfx.line(x + 13 + i * 7, y + 50, x + 13 + i * 7, y + 60, i % 2 == 0 and color or gfx.COLOR_LIGHT_GRAY)
     end
-    gfx.text("SEAM", x + 19, y + 70, color)
+    gfx.text("FIN SEAM", x + 9, y + 70, color)
     return
   end
 
-  gfx.text("RIP", x + 24, y + 17, gfx.COLOR_TRUE_WHITE)
-  gfx.text("MON", x + 22, y + 30, color)
-  gfx.circ_fill(x + w / 2, y + 54, 15, color)
-  gfx.circ(x + w / 2, y + 54, 22, gfx.COLOR_TRUE_WHITE)
-  gfx.line(x + w / 2 - 13, y + 56, x + w / 2 + 13, y + 44, gfx.COLOR_TRUE_WHITE)
-  gfx.line(x + w / 2 - 13, y + 64, x + w / 2 + 13, y + 52, gfx.COLOR_LIGHT_GRAY)
+  gfx.rect_fill(x + 5, y + CRIMP_H + 4, w - 10, 11, gfx.COLOR_DARK_PURPLE)
+  gfx.rect(x + 5, y + CRIMP_H + 4, w - 10, 11, color)
+  gfx.text("RIP", x + 24, y + 23, gfx.COLOR_TRUE_WHITE)
+  gfx.text("MON", x + 22, y + 36, color)
+  gfx.circ_fill(x + w / 2, y + 60, 15, color)
+  gfx.circ(x + w / 2, y + 60, 22, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x + w / 2 - 13, y + 62, x + w / 2 + 13, y + 50, gfx.COLOR_TRUE_WHITE)
+  gfx.line(x + w / 2 - 13, y + 70, x + w / 2 + 13, y + 58, gfx.COLOR_LIGHT_GRAY)
+  gfx.rect_fill(x + 3, y + CRIMP_H + 1, 7, 6, gfx.COLOR_BLACK)
+  gfx.line(x + 3, y + CRIMP_H + 4, x + 10, y + CRIMP_H + 4, color)
+end
+
+function draw_crimp_band(x, y, w, h, color)
+  gfx.rect_fill(x, y, w, h, gfx.COLOR_DARK_PURPLE)
+  gfx.rect(x, y, w, h, color)
+  for i = 0, 11 do
+    local px = x + i * (w / 11)
+    gfx.line(px, y, px + w / 18, y + h, i % 2 == 0 and color or gfx.COLOR_LIGHT_GRAY)
+  end
 end
 
 function draw_torn_strip(x, y, w, h, color)
@@ -562,7 +580,7 @@ function update_card_drag(dt)
     end
   end
 
-  if State.drag == nil and input.mouse_pressed(input.MOUSE_LEFT) then
+  if State.drag == nil and State.ui_drag == nil and input.mouse_held(input.MOUSE_LEFT) then
     local hit = hit_card(mx, my)
     if hit ~= nil then
       State.drag = {
@@ -657,12 +675,35 @@ function hit_card(mx, my)
   end)
 
   for _, item in ipairs(cards) do
-    if mx >= item.x and mx <= item.x + item.w and my >= item.y and my <= item.y + item.h then
+    local pad = item.depth > 0.82 and 14 or 8
+    if mx >= item.x - pad
+      and mx <= item.x + item.w + pad
+      and my >= item.y - pad
+      and my <= item.y + item.h + pad then
       return item
     end
   end
 
-  return nil
+  return nearest_front_card(mx, my, cards)
+end
+
+function nearest_front_card(mx, my, cards)
+  local best = nil
+  local best_d = 99999
+
+  for _, item in ipairs(cards) do
+    local cx = item.x + item.w / 2
+    local cy = item.y + item.h / 2
+    local dx = mx - cx
+    local dy = my - cy
+    local d = dx * dx + dy * dy
+    if d < best_d and d < 34 * 34 and item.depth > 0.72 then
+      best = item
+      best_d = d
+    end
+  end
+
+  return best
 end
 
 function return_card_item()
