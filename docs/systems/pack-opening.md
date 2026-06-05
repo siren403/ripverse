@@ -162,6 +162,8 @@ The goal is for the player to feel a hit before the full card is readable. Borde
 
 When the next card is high tier, the dragged card should resist early motion, expose the next card's border first, hold through the middle of the drag, then snap open near release. Common and uncommon cards should still slide quickly.
 
+For the durable interaction contract and failure modes, use `docs/harness/interaction-pattern-database.md`, especially `RPV-INT-001: Resistance Snap Reveal`.
+
 ## Wrapper Motions
 
 Represent more than one physical opening pattern:

@@ -33,6 +33,10 @@ When a repeated clarification, agent mistake, or project convention appears, use
 - scripts for deterministic build/export/validation tasks
 - agents for recurring specialist roles
 
+## Knowledge Databases
+
+- `docs/harness/interaction-pattern-database.md`: reusable interaction and motion patterns, including the `ResistanceSnapReveal` contract for tactile card reveal work.
+
 ## Turn Closure Policy
 
 End-of-turn direction should preserve the current objective instead of expanding the option space. Prefer one clear next objective or desirable immediate objective over broad recommendations. For Ripverse, default orientation stays on the Phase 1 rip-loop playground unless the user redirects.
