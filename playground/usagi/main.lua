@@ -57,6 +57,15 @@ local PACK_QUEUE_STEP_Y = 5
 local PACK_TURN_DISTANCE = 72
 local CARD_PAD_X = 5
 local CARD_TEXT_W = CARD_W - CARD_PAD_X * 2
+local SPR = {
+  pack_front = { sx = 0, sy = 0, sw = 80, sh = 104 },
+  pack_back = { sx = 80, sy = 0, sw = 80, sh = 104 },
+  card_base = { sx = 0, sy = 112, sw = 64, sh = 88 },
+  card_rare = { sx = 64, sy = 112, sw = 64, sh = 88 },
+  card_epic = { sx = 128, sy = 112, sw = 64, sh = 88 },
+  card_legendary = { sx = 192, sy = 112, sw = 64, sh = 88 },
+  tear = { sx = 0, sy = 220, sw = 256, sh = 24 },
+}
 local SHOP_ITEM_W = 72
 local SHOP_ITEM_H = 78
 local SHOP_CENTER_X = 124
@@ -138,7 +147,13 @@ local draw_pack_stack
 local draw_flip_stack
 local draw_current_reveal_card
 local draw_reveal_cards
+local draw_sprite_part
+local draw_sprite_scaled
+local card_sprite_for
 local draw_card
+local draw_card_sprite_frame
+local draw_card_fields
+local draw_card_suspense
 local draw_card_back
 local draw_card_peek
 local draw_tension_line
@@ -154,6 +169,7 @@ local draw_fit_text
 local drag_progress
 local rubber_band_drag
 local drag_profile
+local reveal_clue_progress
 local point_in_rect
 local fit_text
 
@@ -412,6 +428,8 @@ function update_pack_drag()
       and State.reveal_index <= #State.revealed_cards
       and point_in_rect(mx, my, { x = STACK_CARD_X, y = STACK_CARD_Y, w = CARD_W, h = CARD_H }) then
       State.drag = { kind = "card", start_x = mx }
+      State.drag.start_y = my
+      State.drag.axis = nil
       State.drag_card = State.revealed_cards[State.reveal_index]
       State.card_drag_x = STACK_CARD_X
       State.card_drag_y = STACK_CARD_Y
@@ -433,14 +451,31 @@ function update_pack_drag()
     elseif State.drag.kind == "card" then
       local reveal_card = State.revealed_cards[State.reveal_index + 1] or State.drag_card
       local profile = drag_profile(reveal_card)
-      local pointer_dx = math.max(0, mx - State.drag.start_x)
-      local card_dx = rubber_band_drag(pointer_dx, profile)
-      State.card_pointer_x = STACK_CARD_X + pointer_dx
-      State.card_drag_x = STACK_CARD_X + math.floor(card_dx)
-      State.card_drag_progress = math.max(0, math.min(1, card_dx / DRAG_COMMIT_DISTANCE))
-      State.card_tension_gap = math.max(0, pointer_dx - card_dx)
-      State.card_snap_ready = pointer_dx >= profile.breakpoint
-      State.card_drag_y = STACK_CARD_Y
+      local raw_dx = mx - State.drag.start_x
+      local raw_dy = State.drag.start_y - my
+      if State.drag.axis == nil and (math.abs(raw_dx) > 5 or math.abs(raw_dy) > 5) then
+        State.drag.axis = math.abs(raw_dy) > math.abs(raw_dx) + 4 and "vertical" or "horizontal"
+      end
+
+      if State.drag.axis == "vertical" then
+        local pointer_dy = math.max(0, raw_dy)
+        local card_dy = rubber_band_drag(pointer_dy, profile)
+        State.card_pointer_x = STACK_CARD_X
+        State.card_drag_x = STACK_CARD_X
+        State.card_drag_y = STACK_CARD_Y - math.floor(card_dy)
+        State.card_drag_progress = math.max(0, math.min(1, card_dy / DRAG_COMMIT_DISTANCE))
+        State.card_tension_gap = math.max(0, pointer_dy - card_dy)
+        State.card_snap_ready = pointer_dy >= profile.breakpoint
+      else
+        local pointer_dx = math.max(0, raw_dx)
+        local card_dx = rubber_band_drag(pointer_dx, profile)
+        State.card_pointer_x = STACK_CARD_X + pointer_dx
+        State.card_drag_x = STACK_CARD_X + math.floor(card_dx)
+        State.card_drag_y = STACK_CARD_Y
+        State.card_drag_progress = math.max(0, math.min(1, card_dx / DRAG_COMMIT_DISTANCE))
+        State.card_tension_gap = math.max(0, pointer_dx - card_dx)
+        State.card_snap_ready = pointer_dx >= profile.breakpoint
+      end
     end
   elseif State.drag then
     if State.drag.kind == "tear" then
@@ -1045,7 +1080,9 @@ function draw_active_pack()
 end
 
 function draw_pack_face(x, y, w, h, angle, face, selected, color)
-  draw_rotated_pack_card(x, y, w, h, angle, selected, color)
+  local sprite = face == "back" and SPR.pack_back or SPR.pack_front
+  draw_sprite_scaled(sprite, x, y, w, h, false, false, angle, gfx.COLOR_TRUE_WHITE, 1.0)
+  draw_rotated_rect(x, y, w, h, angle, selected and 3 or 1, color)
 
   if w < 30 then
     return
@@ -1097,9 +1134,9 @@ function draw_pack_wrapper()
 
   if State.opening_style == "trick" then
     local seam_h = math.max(2, math.floor(State.tear_progress * PACK_SEAM_H))
-    gfx.rect_fill(PACK_X, PACK_Y, PACK_W, PACK_H, COLOR.PANEL_DARK)
+    draw_sprite_scaled(SPR.pack_back, PACK_X, PACK_Y, PACK_W, PACK_H, false, false, 0, gfx.COLOR_TRUE_WHITE, 1.0)
     gfx.rect_ex(PACK_X, PACK_Y, PACK_W, PACK_H, 3, color)
-    gfx.rect_fill(PACK_X + 28, PACK_Y + 6, 12, seam_h, COLOR.PANEL)
+    draw_sprite_part(SPR.tear, 0, 0, 18, 24, PACK_X + 26, PACK_Y + 6, 16, seam_h, false, false, 0, COLOR.RARE, 1.0)
     gfx.rect(PACK_X + 32, PACK_Y + 6, 4, PACK_SEAM_H, COLOR.MUTED)
     gfx.rect_fill(PACK_X + 31, PACK_Y + 6, 6, seam_h, COLOR.RARE)
     gfx.text("BACK", PACK_X + 20, PACK_Y + 24, COLOR.TEXT)
@@ -1111,9 +1148,11 @@ function draw_pack_wrapper()
       tear_x = PACK_X + PACK_W - tear_w
     end
 
-    gfx.rect_fill(PACK_X, PACK_Y, PACK_W, PACK_H, COLOR.PANEL)
+    draw_sprite_scaled(SPR.pack_front, PACK_X, PACK_Y, PACK_W, PACK_H, false, false, 0, gfx.COLOR_TRUE_WHITE, 1.0)
     gfx.rect_ex(PACK_X, PACK_Y, PACK_W, PACK_H, 3, color)
-    gfx.rect_fill(tear_x, PACK_Y, tear_w, 17, COLOR.PANEL_DARK)
+    if tear_w > 0 then
+      draw_sprite_part(SPR.tear, 0, 0, math.max(1, math.floor(State.tear_progress * SPR.tear.sw)), 18, tear_x, PACK_Y, tear_w, 17, State.tear_dir < 0, false, 0, COLOR.LEGENDARY, 1.0)
+    end
     gfx.rect(PACK_X, PACK_Y + 14, PACK_W, 2, COLOR.MUTED)
     gfx.text("GENESIS", PACK_X + 16, PACK_Y + 24, COLOR.TEXT)
     gfx.text("PACK", PACK_X + 24, PACK_Y + 42, color)
@@ -1153,9 +1192,13 @@ function draw_current_reveal_card()
     return
   end
 
-  gfx.text("SLIDE RIGHT", 118, 52, COLOR.MUTED)
+  gfx.text("SLIDE CARD", 118, 52, COLOR.MUTED)
   if next_card ~= nil then
-    draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false)
+    if State.drag and State.drag.kind == "card" then
+      draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false, reveal_clue_progress(next_card))
+    else
+      draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false, 0)
+    end
     if State.drag and State.drag.kind == "card" then
       draw_card_peek(next_card, State.card_drag_progress)
       draw_tension_line(next_card)
@@ -1181,7 +1224,28 @@ function draw_reveal_cards()
   end
 end
 
-function draw_card(card, x, y, is_current)
+function draw_sprite_part(sprite, sx, sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y, rotation, tint, alpha)
+  gfx.sspr_ex(sprite.sx + sx, sprite.sy + sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y, rotation, tint, alpha)
+end
+
+function draw_sprite_scaled(sprite, x, y, w, h, flip_x, flip_y, rotation, tint, alpha)
+  gfx.sspr_ex(sprite.sx, sprite.sy, sprite.sw, sprite.sh, x, y, w, h, flip_x, flip_y, rotation, tint, alpha)
+end
+
+function card_sprite_for(card)
+  local tier = rarity_score(card)
+  if tier >= 7 then
+    return SPR.card_legendary
+  elseif tier >= 5 then
+    return SPR.card_epic
+  elseif tier >= 3 then
+    return SPR.card_rare
+  end
+
+  return SPR.card_base
+end
+
+function draw_card(card, x, y, is_current, reveal_progress)
   local color = rarity_color(card.rarity)
   local treatment = card.treatment or "base"
   local label = rarity_label(card.rarity)
@@ -1192,14 +1256,50 @@ function draw_card(card, x, y, is_current)
     label = "holo " .. label
   end
 
-  gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL)
-  gfx.rect_ex(x, y, CARD_W, CARD_H, is_current and 3 or 1, color)
+  draw_card_sprite_frame(card, x, y, is_current, reveal_progress)
   if treatment ~= "base" then
     gfx.rect(x + 3, y + 3, CARD_W - 6, CARD_H - 6, color)
   end
-  draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
-  draw_fit_text(label, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
-  draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
+  draw_card_fields(card, x, y, label, color, reveal_progress or 1)
+  if reveal_progress ~= nil and reveal_progress < 1 then
+    draw_card_suspense(card, x, y, reveal_progress)
+  end
+end
+
+function draw_card_sprite_frame(card, x, y, is_current, reveal_progress)
+  local color = rarity_color(card.rarity)
+  local sprite = card_sprite_for(card)
+  if reveal_progress ~= nil and reveal_progress < 0.35 then
+    color = COLOR.MUTED
+    sprite = SPR.card_base
+  end
+  draw_sprite_scaled(sprite, x, y, CARD_W, CARD_H, false, false, 0, gfx.COLOR_TRUE_WHITE, 1.0)
+  gfx.rect_ex(x, y, CARD_W, CARD_H, is_current and 3 or 1, color)
+end
+
+function draw_card_fields(card, x, y, label, color, reveal_progress)
+  if reveal_progress >= 0.72 then
+    draw_fit_text(card.name, x + CARD_PAD_X, y + 9, CARD_TEXT_W, COLOR.TEXT)
+  end
+  if reveal_progress >= 0.46 then
+    draw_fit_text(label, x + CARD_PAD_X, y + 31, CARD_TEXT_W, color)
+  end
+  if reveal_progress >= 0.88 then
+    draw_fit_text("$" .. card.base_value, x + CARD_PAD_X, y + 52, CARD_TEXT_W, COLOR.MONEY)
+  end
+end
+
+function draw_card_suspense(card, x, y, reveal_progress)
+  local color = rarity_color(card.rarity)
+  local tier = rarity_score(card)
+  local cover_h = math.max(0, math.floor((1 - reveal_progress) * (CARD_H - 8)))
+  if cover_h > 0 then
+    gfx.rect_fill(x + 4, y + 4, CARD_W - 8, cover_h, COLOR.PANEL_DARK)
+  end
+  if tier >= 5 and reveal_progress < 0.45 then
+    gfx.rect_fill(x + 3, y + CARD_H - 18, CARD_W - 6, 10, COLOR.PANEL_DARK)
+    gfx.rect(x + 3, y + CARD_H - 18, CARD_W - 6, 10, color)
+  end
 end
 
 function draw_card_peek(card, progress)
@@ -1229,6 +1329,19 @@ function draw_tension_line(card)
   end
 
   local color = rarity_color(card.rarity)
+  if State.drag ~= nil and State.drag.axis == "vertical" then
+    local x = STACK_CARD_X + CARD_W + 6
+    local y1 = State.card_drag_y + CARD_H
+    local stretch = math.min(22, math.floor(State.card_tension_gap / profile.sag_divisor))
+    gfx.line(x, y1, x + stretch, y1 + 8, color)
+    gfx.line(x + stretch, y1 + 8, x, STACK_CARD_Y + CARD_H, color)
+    if State.card_snap_ready then
+      gfx.rect(STACK_CARD_X - 4, STACK_CARD_Y - 4, CARD_W + 8, CARD_H + 8, color)
+      draw_fit_text("SNAP", STACK_CARD_X + 13, STACK_CARD_Y - 12, 28, color)
+    end
+    return
+  end
+
   local y = STACK_CARD_Y + CARD_H + 5
   local x1 = State.card_drag_x + CARD_W
   local x2 = math.min(State.card_pointer_x, STACK_CARD_X + 96)
@@ -1244,7 +1357,8 @@ function draw_tension_line(card)
 end
 
 function draw_card_back(x, y)
-  gfx.rect_fill(x, y, CARD_W, CARD_H, COLOR.PANEL_DARK)
+  draw_sprite_scaled(SPR.card_base, x, y, CARD_W, CARD_H, false, false, 0, gfx.COLOR_TRUE_WHITE, 0.7)
+  gfx.rect_fill(x + 5, y + 5, CARD_W - 10, CARD_H - 10, COLOR.PANEL_DARK)
   gfx.rect(x, y, CARD_W, CARD_H, COLOR.MUTED)
   gfx.text("CARD", x + 12, y + 26, COLOR.MUTED)
 end
@@ -1360,16 +1474,22 @@ function drag_profile(card)
   local tier = rarity_score(card)
 
   if tier <= 2 then
-    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8 }
+    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_rate = 1.8, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8, clue_delay = 0.05, clue_span = 0.55 }
   elseif tier <= 3 then
-    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 0, peek = 1, peek_gap = 12, peek_span = 30, tension_gap = 12, sag_divisor = 7 }
+    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_rate = 2.1, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 12, sag_divisor = 7, clue_delay = 0.18, clue_span = 0.58 }
   elseif tier <= 4 then
-    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, snap_rate = 2.3, lift = 0, peek = 1, peek_gap = 9, peek_span = 40, tension_gap = 12, sag_divisor = 6 }
+    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, snap_rate = 2.3, lift = 0, peek = 1, peek_gap = 28, peek_span = 40, tension_gap = 12, sag_divisor = 6, clue_delay = 0.32, clue_span = 0.52 }
   elseif tier <= 6 then
-    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, snap_rate = 2.6, lift = 0, peek = 2, peek_gap = 5, peek_span = 56, tension_gap = 8, sag_divisor = 5 }
+    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, snap_rate = 2.6, lift = 0, peek = 2, peek_gap = 42, peek_span = 56, tension_gap = 8, sag_divisor = 5, clue_delay = 0.50, clue_span = 0.42 }
   end
 
-  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, snap_rate = 2.8, lift = 0, peek = 2, peek_gap = 2, peek_span = 72, tension_gap = 5, sag_divisor = 4 }
+  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, snap_rate = 2.8, lift = 0, peek = 2, peek_gap = 56, peek_span = 72, tension_gap = 5, sag_divisor = 4, clue_delay = 0.62, clue_span = 0.34 }
+end
+
+function reveal_clue_progress(card)
+  local profile = drag_profile(card)
+  local progress = (State.card_drag_progress - profile.clue_delay) / profile.clue_span
+  return math.max(0, math.min(1, progress))
 end
 
 function point_in_rect(px, py, rect)
