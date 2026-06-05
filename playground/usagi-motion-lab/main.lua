@@ -24,6 +24,13 @@ local CUBE_EDGES = {
 
 local DRAG_CARD_W = 34
 local DRAG_CARD_H = 54
+local TUNE_FIELDS = {
+  { key = "drag_follow", label = "follow", min = 0.08, max = 0.62, step = 0.03 },
+  { key = "velocity_roll", label = "roll", min = 0.001, max = 0.009, step = 0.0005 },
+  { key = "tilt_gain", label = "tilt", min = 0.008, max = 0.045, step = 0.002 },
+  { key = "return_step", label = "return", min = 0.04, max = 0.18, step = 0.01 },
+  { key = "layout_speed", label = "reflow", min = 2.5, max = 16.0, step = 0.5 },
+}
 
 function _config()
   return {
@@ -39,6 +46,14 @@ function _init()
     scanline = 0.55,
     cards = {},
     layout_t = 0,
+    tune_idx = 1,
+    tune = {
+      drag_follow = 0.34,
+      velocity_roll = 0.004,
+      tilt_gain = 0.025,
+      return_step = 0.09,
+      layout_speed = 8.0,
+    },
     drag = nil,
     returning = nil,
   }
@@ -62,8 +77,26 @@ function _update(dt)
     gfx.shader_set(SHADERS[State.shader_idx])
   end
 
+  update_tuning()
   update_card_drag(dt)
   update_orbit_layout(dt)
+end
+
+function update_tuning()
+  if input.pressed(input.BTN2) or key_pressed(input.KEY_SPACE) then
+    State.tune_idx = (State.tune_idx % #TUNE_FIELDS) + 1
+  end
+
+  local field = TUNE_FIELDS[State.tune_idx]
+  if key_pressed(input.KEY_LEFT) then
+    State.tune[field.key] = clamp(State.tune[field.key] - field.step, field.min, field.max)
+  elseif key_pressed(input.KEY_RIGHT) then
+    State.tune[field.key] = clamp(State.tune[field.key] + field.step, field.min, field.max)
+  elseif key_pressed(input.KEY_DOWN) then
+    State.tune[field.key] = clamp(State.tune[field.key] - field.step * 4, field.min, field.max)
+  elseif key_pressed(input.KEY_UP) then
+    State.tune[field.key] = clamp(State.tune[field.key] + field.step * 4, field.min, field.max)
+  end
 end
 
 function _draw(_dt)
@@ -209,7 +242,7 @@ function update_orbit_layout(dt)
       target_slot = card.slot - 1
     end
 
-    local amount = math.min(1, dt * 8)
+    local amount = math.min(1, dt * State.tune.layout_speed)
     card.display_slot = lerp(card.display_slot, target_slot, amount)
   end
 end
@@ -239,7 +272,7 @@ function update_card_drag(dt)
     if item == nil or State.returning.t >= 1 then
       State.returning = nil
     else
-      State.returning.t = math.min(1, State.returning.t + 0.09)
+      State.returning.t = math.min(1, State.returning.t + State.tune.return_step)
     end
   end
 
@@ -292,14 +325,14 @@ function update_card_drag(dt)
     drag.target_x = target_x
     drag.target_y = target_y
 
-    drag.lift_x = lerp(drag.lift_x, target_x, 0.34)
-    drag.lift_y = lerp(drag.lift_y, target_y, 0.34)
+    drag.lift_x = lerp(drag.lift_x, target_x, State.tune.drag_follow)
+    drag.lift_y = lerp(drag.lift_y, target_y, State.tune.drag_follow)
     drag.w = lerp(drag.w, DRAG_CARD_W, 0.25)
     drag.h = lerp(drag.h, DRAG_CARD_H, 0.25)
     drag.x = drag.lift_x
     drag.y = drag.lift_y
 
-    local velocity_tilt = clamp(drag.vx * 0.004, -0.35, 0.35)
+    local velocity_tilt = clamp(drag.vx * State.tune.velocity_roll, -0.35, 0.35)
     local acceleration_tilt = clamp(drag.ax * 0.0009, -0.18, 0.18)
     local hover_wobble = math.sin(State.t * 9) * 0.025
     drag.angle = lerp(drag.angle, velocity_tilt + acceleration_tilt + hover_wobble, 0.28)
@@ -307,8 +340,8 @@ function update_card_drag(dt)
     local tilt_target_y = 0
     local tilt_target_x = 0
     if moved > 12 then
-      tilt_target_y = clamp((mx - (drag.x + drag.w / 2)) * 0.025 + drag.vx * 0.0016, -0.30, 0.30)
-      tilt_target_x = clamp((my - (drag.y + drag.h / 2)) * -0.018 + drag.vy * -0.0011, -0.22, 0.22)
+      tilt_target_y = clamp((mx - (drag.x + drag.w / 2)) * State.tune.tilt_gain + drag.vx * 0.0016, -0.30, 0.30)
+      tilt_target_x = clamp((my - (drag.y + drag.h / 2)) * -State.tune.tilt_gain * 0.72 + drag.vy * -0.0011, -0.22, 0.22)
     end
     drag.tilt_y = lerp(drag.tilt_y, tilt_target_y, 0.24)
     drag.tilt_x = lerp(drag.tilt_x, tilt_target_x, 0.24)
@@ -374,6 +407,10 @@ end
 
 function clamp(value, min_value, max_value)
   return math.max(min_value, math.min(max_value, value))
+end
+
+function key_pressed(key)
+  return key ~= nil and input.key_pressed(key)
 end
 
 function ease_out_back(t)
@@ -487,8 +524,12 @@ function rot_point(x, y, cx, cy, angle)
 end
 
 function draw_hud()
+  local field = TUNE_FIELDS[State.tune_idx]
+  local value = State.tune[field.key]
+
   gfx.rect_fill(0, 0, usagi.GAME_W, 22, gfx.COLOR_BLACK)
   gfx.text("MOTION LAB", 8, 7, gfx.COLOR_YELLOW)
   gfx.text("shader " .. LABELS[State.shader_idx], 212, 7, gfx.COLOR_GREEN)
-  gfx.text("drag cards | BTN1 shader", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  gfx.text(field.label .. " " .. string.format("%.3f", value), 8, 146, gfx.COLOR_YELLOW)
+  gfx.text("BTN1 shader | BTN2 tune | arrows value", 8, 166, gfx.COLOR_LIGHT_GRAY)
 end

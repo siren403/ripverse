@@ -56,6 +56,9 @@ If Tailscale Serve is already configured as `8091 -> localhost:8090`, the same e
 ```text
 drag cards
 BTN1 cycle shader
+BTN2 / Space select tuning field
+Arrow left/right adjust selected field
+Arrow up/down coarse-adjust selected field
 ```
 
 ## Main Game Boundary
