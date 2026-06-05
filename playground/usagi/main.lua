@@ -168,6 +168,9 @@ local draw_right_text
 local draw_fit_text
 local drag_progress
 local rubber_band_drag
+local start_card_snap
+local update_card_snap
+local clear_card_drag_state
 local snap_ease_out
 local drag_profile
 local reveal_clue_progress
@@ -205,6 +208,7 @@ function _init()
     reveal_phase = "idle",
     drag = nil,
     drag_card = nil,
+    card_snap = nil,
     tear_dir = 1,
     tear_progress = 0,
     trick_progress = 0,
@@ -414,6 +418,11 @@ function update_pack_drag()
   local mx, my = input.mouse()
   local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
 
+  if State.card_snap ~= nil then
+    update_card_snap()
+    return
+  end
+
   if not in_bounds then
     if not input.mouse_held(input.MOUSE_LEFT) then
       State.drag = nil
@@ -431,8 +440,6 @@ function update_pack_drag()
       State.drag = { kind = "card", start_x = mx }
       State.drag.start_y = my
       State.drag.axis = nil
-      State.drag.snap_started_at = nil
-      State.drag.snap_from = 0
       State.drag_card = State.revealed_cards[State.reveal_index]
       State.card_drag_x = STACK_CARD_X
       State.card_drag_y = STACK_CARD_Y
@@ -464,12 +471,8 @@ function update_pack_drag()
         local pointer_dy = math.max(0, raw_dy)
         local card_dy = rubber_band_drag(pointer_dy, profile)
         if pointer_dy >= profile.breakpoint then
-          if State.drag.snap_started_at == nil then
-            State.drag.snap_started_at = usagi.elapsed
-            State.drag.snap_from = card_dy
-          end
-          local t = math.min(1, (usagi.elapsed - State.drag.snap_started_at) / profile.snap_duration)
-          card_dy = State.drag.snap_from + (profile.open_dx - State.drag.snap_from) * snap_ease_out(t)
+          start_card_snap("vertical", card_dy, profile)
+          return
         end
         State.card_pointer_x = STACK_CARD_X
         State.card_drag_x = STACK_CARD_X
@@ -481,12 +484,8 @@ function update_pack_drag()
         local pointer_dx = math.max(0, raw_dx)
         local card_dx = rubber_band_drag(pointer_dx, profile)
         if pointer_dx >= profile.breakpoint then
-          if State.drag.snap_started_at == nil then
-            State.drag.snap_started_at = usagi.elapsed
-            State.drag.snap_from = card_dx
-          end
-          local t = math.min(1, (usagi.elapsed - State.drag.snap_started_at) / profile.snap_duration)
-          card_dx = State.drag.snap_from + (profile.open_dx - State.drag.snap_from) * snap_ease_out(t)
+          start_card_snap("horizontal", card_dx, profile)
+          return
         end
         State.card_pointer_x = STACK_CARD_X + pointer_dx
         State.card_drag_x = STACK_CARD_X + math.floor(card_dx)
@@ -505,18 +504,12 @@ function update_pack_drag()
       end
     elseif State.drag.kind == "card" then
       if State.card_snap_ready then
-        advance_pack_reveal()
+        start_card_snap(State.drag.axis or "horizontal", State.card_drag_progress * DRAG_COMMIT_DISTANCE, drag_profile(State.revealed_cards[State.reveal_index + 1] or State.drag_card))
+        return
       end
     end
 
-    State.drag = nil
-    State.drag_card = nil
-    State.card_drag_x = 0
-    State.card_drag_y = 0
-    State.card_drag_progress = 0
-    State.card_pointer_x = 0
-    State.card_tension_gap = 0
-    State.card_snap_ready = false
+    clear_card_drag_state()
   end
 end
 
@@ -1213,18 +1206,18 @@ function draw_current_reveal_card()
 
   gfx.text("SLIDE CARD", 118, 52, COLOR.MUTED)
   if next_card ~= nil then
-    if State.drag and State.drag.kind == "card" then
+    if (State.drag and State.drag.kind == "card") or State.card_snap ~= nil then
       draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false, reveal_clue_progress(next_card))
     else
       draw_card(next_card, STACK_CARD_X, STACK_CARD_Y, false, 0)
     end
-    if State.drag and State.drag.kind == "card" then
+    if (State.drag and State.drag.kind == "card") or State.card_snap ~= nil then
       draw_card_peek(next_card, State.card_drag_progress)
       draw_tension_line(next_card)
     end
   end
 
-  if State.drag and State.drag.kind == "card" and State.drag_card ~= nil then
+  if ((State.drag and State.drag.kind == "card") or State.card_snap ~= nil) and State.drag_card ~= nil then
     draw_card(State.drag_card, State.card_drag_x, State.card_drag_y, true)
   else
     draw_card(card, STACK_CARD_X, STACK_CARD_Y, true)
@@ -1486,6 +1479,59 @@ function rubber_band_drag(pointer_dx, profile)
   local normalized = pointer_dx / profile.breakpoint
   local eased = 1 - (1 / (1 + normalized * profile.resistance))
   return profile.hold_dx * eased
+end
+
+function start_card_snap(axis, from_distance, profile)
+  State.card_snap = {
+    axis = axis,
+    from = from_distance,
+    to = profile.open_dx,
+    duration = profile.snap_duration,
+    started_at = usagi.elapsed,
+  }
+  State.card_snap_ready = true
+  State.card_tension_gap = 0
+  State.drag = nil
+  update_card_snap()
+end
+
+function update_card_snap()
+  local snap = State.card_snap
+  if snap == nil then
+    return
+  end
+
+  local t = math.min(1, (usagi.elapsed - snap.started_at) / snap.duration)
+  local distance = snap.from + (snap.to - snap.from) * snap_ease_out(t)
+
+  if snap.axis == "vertical" then
+    State.card_drag_x = STACK_CARD_X
+    State.card_drag_y = STACK_CARD_Y - math.floor(distance)
+    State.card_pointer_x = STACK_CARD_X
+  else
+    State.card_drag_x = STACK_CARD_X + math.floor(distance)
+    State.card_drag_y = STACK_CARD_Y
+    State.card_pointer_x = STACK_CARD_X + math.floor(distance)
+  end
+
+  State.card_drag_progress = math.max(0, math.min(1, distance / DRAG_COMMIT_DISTANCE))
+
+  if t >= 1 then
+    clear_card_drag_state()
+    advance_pack_reveal()
+  end
+end
+
+function clear_card_drag_state()
+  State.drag = nil
+  State.drag_card = nil
+  State.card_snap = nil
+  State.card_drag_x = 0
+  State.card_drag_y = 0
+  State.card_drag_progress = 0
+  State.card_pointer_x = 0
+  State.card_tension_gap = 0
+  State.card_snap_ready = false
 end
 
 function drag_profile(card)
