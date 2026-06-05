@@ -46,7 +46,7 @@ Treat the playground as a fast feel-validation space, not as a final architectur
 
 For card-pack opening work, prioritize motion and tactile feel before deeper system completeness. A prototype should first validate wrapper tearing, dragging, sliding, flipping, pacing, and reveal feel; then use systems such as reveal order, hit slots, and opening styles to support that feel. Avoid replacing tactile validation with static button-driven flows unless the user explicitly asks for a non-motion fallback.
 
-The primary Phase 1 playground target is Usagi Engine exported to web. On the current Linux `aarch64` host, the official Usagi v1.0.0 installer does not provide a Linux aarch64 CLI, so local Usagi export may require source build. If local export is blocked, use GitHub Actions on an x86_64 runner to run `usagi export --target web` and publish the exported static files to GitHub Pages.
+The primary Phase 1 playground target is Usagi Engine exported to web. As of Usagi v1.1.0, the official release includes a Linux `aarch64` CLI, so the current host can run local Usagi web exports. Use GitHub Actions for GitHub Pages deployment and as a fallback if local export is unavailable.
 
 When starting a local static preview server, use the project server script. Prefer foreground mode so the process stays tied to the active Codex exec session and cannot become a dangling server after session end. If background mode is used, stop it with `scripts/stop-web.sh` before ending the turn.
 

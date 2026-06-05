@@ -1,6 +1,7 @@
 # Usagi Playground
 
 Investigation date: 2026-06-02
+Updated: 2026-06-05 for Usagi v1.1.0 Linux `aarch64` release
 
 ## Role
 
@@ -25,25 +26,25 @@ Use it to answer questions like:
 - Prefer GitHub Pages for visual and milestone checks from external mobile or PC devices.
 - Reconsider Tailscale only for private internal previews, server API testing, or non-public tools.
 
-## Current Host Limitation
+## Current Host Support
 
-The current development host is Linux `aarch64`. On 2026-06-02, the official Usagi install script reported that only `x86_64` Linux binaries are published. The playground can be authored here, but runtime validation should happen on a supported Usagi host until an `aarch64` build path is confirmed.
+The current development host is Linux `aarch64`. Usagi v1.1.0 publishes an official Linux `aarch64` CLI, so local runtime/export validation is available on this host.
 
-Because of this limitation, do not replace the Usagi playground with a browser-native substitute unless the user explicitly asks for a fallback. The primary deployable artifact should be the Usagi web export.
+Do not replace the Usagi playground with a browser-native substitute unless the user explicitly asks for a fallback. The primary deployable artifact should be the Usagi web export.
 
-Expected validation command on a supported host:
+Expected local validation command:
 
 ```sh
 usagi dev playground/usagi
 ```
 
-Expected export command on a supported host:
+Expected local export command:
 
 ```sh
 usagi export playground/usagi --target web
 ```
 
-If local source build is not practical on the current host, use GitHub Actions on an x86_64 runner to run the export and publish the exported static files to GitHub Pages.
+Use GitHub Actions to publish the exported static files to GitHub Pages and as a fallback if the local CLI is unavailable.
 
 ## Known Constraints
 

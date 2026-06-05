@@ -185,7 +185,7 @@ Before reporting this interaction fixed:
 - Verify the dragged card is still drawn while snapping.
 - Verify the next reveal state starts only after snap completion.
 - Verify `rg` does not find obsolete linear snap fields such as `snap_rate` or `snap_window` if they were intentionally removed.
-- Verify the Pages export succeeds when local Usagi export is unavailable.
+- Verify local Usagi export succeeds when the CLI is available, or verify the Pages export succeeds when local export is unavailable.
 
 ## Reference Vocabulary
 

@@ -21,7 +21,7 @@ Do not prioritize PvP, trading, guilds, complex economies, or meta competition d
 
 ## Playground Direction
 
-Use the playground to validate the feeling of opening boxes and packs before committing to larger architecture. The primary target is Usagi Engine exported to web. On the current Linux `aarch64` host, local Usagi export may require source build because the official v1.0.0 installer does not publish a Linux aarch64 CLI. If local export is blocked, use GitHub Actions on an x86_64 runner to export the Usagi project and publish it through GitHub Pages.
+Use the playground to validate the feeling of opening boxes and packs before committing to larger architecture. The primary target is Usagi Engine exported to web. As of Usagi v1.1.0, the official release includes a Linux `aarch64` CLI, so the current host can run local web export. Use GitHub Actions for GitHub Pages deployment and as a fallback if local export is unavailable.
 
 ## Harness Policy
 

@@ -177,7 +177,7 @@ inventory
 
 Implement the first playable playground in Usagi and export it to web for shareable checks.
 
-On the current Linux `aarch64` host, local Usagi export may be blocked by the lack of a published v1.0.0 Linux aarch64 CLI. If source build is not practical, use GitHub Actions on an x86_64 runner to run `usagi export --target web` and publish the web export to GitHub Pages.
+As of Usagi v1.1.0, the official release includes a Linux `aarch64` CLI. The current host can run local web export with `usagi export playground/usagi --target web`. Use GitHub Actions for GitHub Pages deployment and as a fallback if local export is unavailable.
 
 Recommended Usagi project shape:
 

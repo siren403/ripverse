@@ -17,19 +17,31 @@ usagi.wasm
 game.usagi
 ```
 
-## Current Host Constraint
+## Current Host Support
 
-The current host is Linux `aarch64`. The official Usagi v1.0.0 release publishes Linux `x86_64`, macOS `aarch64`, Windows `x86_64`, and wasm runtime assets, but no Linux `aarch64` CLI asset.
+The current host is Linux `aarch64`. Usagi v1.1.0 publishes an official Linux `aarch64` CLI asset:
 
-Local export options:
+```text
+usagi-1.1.0-linux-aarch64.tar.gz
+```
 
-- Build Usagi CLI from source on this host after installing Rust and Linux build dependencies.
-- Build the v1.0.0 CLI from source and use the v1.0.0 wasm template.
-- Use a supported host to run the official installer and export.
+Local export is now the preferred first validation path:
 
-## Preferred Fallback
+```sh
+usagi export playground/usagi --target web
+```
 
-If local export is blocked, use GitHub Actions on an x86_64 runner:
+Local validation on 2026-06-05:
+
+```text
+usagi 1.1.0
+usagi export playground/usagi --target web
+wrote ripverse-playground-web.zip
+```
+
+## GitHub Pages Deployment
+
+Use GitHub Actions for the public Pages deployment and as a fallback if local export is unavailable:
 
 ```text
 checkout repo
@@ -40,7 +52,7 @@ upload the unzipped files as GitHub Pages artifact
 deploy Pages
 ```
 
-This keeps the preview as a real Usagi web export while avoiding the local Linux `aarch64` CLI limitation.
+This keeps the preview as a real Usagi web export and provides a stable external preview URL.
 
 ## Do Not Substitute Silently
 
