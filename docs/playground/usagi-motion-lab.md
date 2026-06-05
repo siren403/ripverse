@@ -6,6 +6,9 @@
 
 Use it to validate:
 
+- pack wrapper tear rituals
+- card trick stack movement
+- staged rarity clue reveal
 - shader treatment
 - depth ordering
 - drag inertia
@@ -54,7 +57,11 @@ If Tailscale Serve is already configured as `8091 -> localhost:8090`, the same e
 ## Current Controls
 
 ```text
+M toggle card / pack lab mode
 drag cards
+drag pack wrapper in pack mode
+B toggle front top tear / back seam in pack mode
+R reset pack stage
 BTN1 cycle shader
 BTN2 / Space select tuning field
 Arrow left/right adjust selected field

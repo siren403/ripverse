@@ -24,6 +24,12 @@ local CUBE_EDGES = {
 
 local DRAG_CARD_W = 34
 local DRAG_CARD_H = 54
+local PACK_X = 124
+local PACK_Y = 50
+local PACK_W = 72
+local PACK_H = 94
+local MINI_CARD_W = 42
+local MINI_CARD_H = 58
 local TUNE_FIELDS = {
   { key = "drag_follow", label = "follow", min = 0.08, max = 0.62, step = 0.03 },
   { key = "velocity_roll", label = "roll", min = 0.001, max = 0.009, step = 0.0005 },
@@ -42,6 +48,7 @@ end
 function _init()
   State = {
     t = 0,
+    lab_mode = "cards",
     shader_idx = 1,
     scanline = 0.55,
     cards = {},
@@ -56,6 +63,13 @@ function _init()
     },
     drag = nil,
     returning = nil,
+    pack = {
+      side = "front",
+      phase = "sealed",
+      tear = 0,
+      drag = nil,
+      trick_t = 0,
+    },
   }
 
   for i = 1, 7 do
@@ -77,9 +91,17 @@ function _update(dt)
     gfx.shader_set(SHADERS[State.shader_idx])
   end
 
+  if key_pressed(input.KEY_M) or key_pressed(input.KEY_ENTER) then
+    State.lab_mode = State.lab_mode == "cards" and "pack" or "cards"
+  end
+
   update_tuning()
-  update_card_drag(dt)
-  update_orbit_layout(dt)
+  if State.lab_mode == "pack" then
+    update_pack_stage(dt)
+  else
+    update_card_drag(dt)
+    update_orbit_layout(dt)
+  end
 end
 
 function update_tuning()
@@ -107,8 +129,12 @@ function _draw(_dt)
 
   draw_neon_grid()
   draw_particle_ring()
-  draw_cube(248, 70, 34)
-  draw_card_orbit()
+  if State.lab_mode == "pack" then
+    draw_pack_stage()
+  else
+    draw_cube(248, 70, 34)
+    draw_card_orbit()
+  end
   draw_hud()
 end
 
@@ -147,6 +173,168 @@ function draw_particle_ring()
   end
   gfx.circ(cx, cy, 30 + math.sin(State.t * 4) * 3, gfx.COLOR_YELLOW)
   gfx.circ(cx, cy, 43 + math.cos(State.t * 3) * 3, gfx.COLOR_PINK)
+end
+
+function update_pack_stage(dt)
+  local pack = State.pack
+  local mx, my = input.mouse()
+
+  if key_pressed(input.KEY_B) then
+    pack.side = pack.side == "front" and "back" or "front"
+    reset_pack_stage()
+  end
+
+  if key_pressed(input.KEY_R) then
+    reset_pack_stage()
+  end
+
+  if pack.phase == "trick" then
+    pack.trick_t = math.min(1, pack.trick_t + dt * 0.72)
+    if pack.trick_t >= 1 then
+      pack.phase = "cards"
+    end
+    return
+  end
+
+  if pack.phase ~= "sealed" then
+    return
+  end
+
+  if pack.drag == nil and input.mouse_pressed(input.MOUSE_LEFT) and point_in_rect(mx, my, PACK_X, PACK_Y, PACK_W, PACK_H) then
+    pack.drag = {
+      x = mx,
+      y = my,
+      dir = mx >= PACK_X + PACK_W / 2 and -1 or 1,
+    }
+  end
+
+  if pack.drag ~= nil and input.mouse_held(input.MOUSE_LEFT) then
+    if pack.side == "back" then
+      local dy = math.max(0, my - pack.drag.y)
+      pack.tear = tear_progress(dy, 72, 1.42)
+    elseif pack.drag.dir < 0 then
+      local dx = math.max(0, pack.drag.x - mx)
+      pack.tear = tear_progress(dx, 58, 0.92)
+    else
+      local dx = math.max(0, mx - pack.drag.x)
+      pack.tear = tear_progress(dx, 58, 0.92)
+    end
+  elseif pack.drag ~= nil then
+    if pack.tear >= 0.88 then
+      if pack.side == "back" then
+        pack.phase = "trick"
+        pack.trick_t = 0
+      else
+        pack.phase = "cards"
+      end
+      pack.tear = 1
+    else
+      pack.tear = 0
+    end
+    pack.drag = nil
+  end
+end
+
+function reset_pack_stage()
+  State.pack.phase = "sealed"
+  State.pack.tear = 0
+  State.pack.drag = nil
+  State.pack.trick_t = 0
+end
+
+function tear_progress(distance, full_distance, resistance)
+  local raw = math.max(0, distance / full_distance)
+  local resisted = 1 - (1 / (1 + raw * resistance))
+  return clamp(resisted * 1.55, 0, 1)
+end
+
+function draw_pack_stage()
+  local pack = State.pack
+  gfx.text("PACK RITUAL", 102, 32, gfx.COLOR_YELLOW)
+
+  if pack.phase == "sealed" then
+    draw_pack_wrapper(pack)
+  elseif pack.phase == "trick" then
+    draw_stack_trick(pack.trick_t)
+  else
+    draw_pack_cards(pack.side)
+  end
+end
+
+function draw_pack_wrapper(pack)
+  local color = pack.side == "back" and gfx.COLOR_PINK or gfx.COLOR_YELLOW
+  local pulse = 1 + math.sin(State.t * 8) * 0.08
+  local w = PACK_W * pulse
+  local x = PACK_X + (PACK_W - w) / 2
+
+  gfx.rect_fill(x, PACK_Y, w, PACK_H, gfx.COLOR_DARK_BLUE)
+  gfx.rect_ex(x, PACK_Y, w, PACK_H, 3, color)
+
+  if pack.side == "back" then
+    local seam_h = PACK_H - 18
+    local open_h = seam_h * pack.tear
+    gfx.text("BACK", PACK_X + 19, PACK_Y + 22, gfx.COLOR_WHITE)
+    gfx.text("SEAM", PACK_X + 17, PACK_Y + 43, color)
+    gfx.rect(PACK_X + PACK_W / 2 - 2, PACK_Y + 9, 4, seam_h, gfx.COLOR_LIGHT_GRAY)
+    gfx.rect_fill(PACK_X + PACK_W / 2 - 3, PACK_Y + 9, 6, open_h, color)
+    draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + 8, 12, open_h, color)
+    gfx.text("PULL DOWN", PACK_X + 4, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
+  else
+    local tear_w = PACK_W * pack.tear
+    local tear_x = PACK_X
+    if pack.drag ~= nil and pack.drag.dir < 0 then
+      tear_x = PACK_X + PACK_W - tear_w
+    end
+    gfx.text("RIP", PACK_X + 27, PACK_Y + 24, gfx.COLOR_WHITE)
+    gfx.text("PACK", PACK_X + 20, PACK_Y + 46, color)
+    gfx.rect(PACK_X + 6, PACK_Y + 14, PACK_W - 12, 3, gfx.COLOR_LIGHT_GRAY)
+    gfx.rect_fill(tear_x, PACK_Y + 8, tear_w, 13, color)
+    draw_torn_strip(tear_x, PACK_Y + 6, tear_w, 9, gfx.COLOR_ORANGE)
+    gfx.text("TOP TEAR", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
+  end
+end
+
+function draw_torn_strip(x, y, w, h, color)
+  if w <= 0 or h <= 0 then
+    return
+  end
+
+  for i = 0, 5 do
+    local px = x + i * math.max(2, w / 6)
+    local py = y + math.sin(State.t * 12 + i) * 2
+    gfx.line(px, py, px + math.max(2, w / 8), py + h, color)
+  end
+end
+
+function draw_stack_trick(t)
+  local eased = ease_out_circ(t)
+  gfx.text("CARD TRICK", 108, 44, gfx.COLOR_LIGHT_GRAY)
+
+  draw_mini_card(132, 70, gfx.COLOR_BLUE, "BACK")
+  draw_mini_card(136 + eased * 42, 76, gfx.COLOR_PINK, "MOVE")
+  draw_mini_card(142 + eased * 52, 84, gfx.COLOR_YELLOW, "MOVE")
+
+  local flip = math.min(1, math.max(0, (t - 0.58) / 0.42))
+  local flip_w = math.max(8, MINI_CARD_W * math.abs(1 - flip * 2))
+  draw_mini_card(132 + (MINI_CARD_W - flip_w) / 2, 70 - flip * 16, gfx.COLOR_GREEN, flip < 0.5 and "BACK" or "FACE", flip_w)
+end
+
+function draw_pack_cards(side)
+  local rare_t = 0.35 + math.sin(State.t * 4) * 0.08
+  gfx.text(side == "back" and "TRICK REVEAL" or "RAW REVEAL", 102, 44, gfx.COLOR_LIGHT_GRAY)
+  draw_mini_card(126, 72, gfx.COLOR_DARK_PURPLE, "NEXT")
+  draw_mini_card(118 + rare_t * 20, 66, gfx.COLOR_YELLOW, "SLIDE")
+  gfx.rect(114, 62, 60 + rare_t * 18, 70, gfx.COLOR_ORANGE)
+  gfx.text("CLUE", 138, 139, gfx.COLOR_YELLOW)
+end
+
+function draw_mini_card(x, y, color, label, width)
+  local w = width or MINI_CARD_W
+  gfx.rect_fill(x, y, w, MINI_CARD_H, gfx.COLOR_DARK_BLUE)
+  gfx.rect_ex(x, y, w, MINI_CARD_H, 2, color)
+  if w > 22 then
+    gfx.text(label, x + 6, y + 24, color)
+  end
 end
 
 function draw_card_orbit()
@@ -413,11 +601,21 @@ function key_pressed(key)
   return key ~= nil and input.key_pressed(key)
 end
 
+function point_in_rect(px, py, x, y, w, h)
+  return px >= x and px <= x + w and py >= y and py <= y + h
+end
+
 function ease_out_back(t)
   local c1 = 1.70158
   local c3 = c1 + 1
   local p = t - 1
   return 1 + c3 * p * p * p + c1 * p * p
+end
+
+function ease_out_circ(t)
+  local clamped = clamp(t, 0, 1)
+  local p = clamped - 1
+  return math.sqrt(1 - p * p)
 end
 
 function draw_rot_card(x, y, w, h, angle, color, depth)
@@ -528,8 +726,12 @@ function draw_hud()
   local value = State.tune[field.key]
 
   gfx.rect_fill(0, 0, usagi.GAME_W, 22, gfx.COLOR_BLACK)
-  gfx.text("MOTION LAB", 8, 7, gfx.COLOR_YELLOW)
+  gfx.text(State.lab_mode == "pack" and "PACK LAB" or "MOTION LAB", 8, 7, gfx.COLOR_YELLOW)
   gfx.text("shader " .. LABELS[State.shader_idx], 212, 7, gfx.COLOR_GREEN)
   gfx.text(field.label .. " " .. string.format("%.3f", value), 8, 146, gfx.COLOR_YELLOW)
-  gfx.text("BTN1 shader | BTN2 tune | arrows value", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  if State.lab_mode == "pack" then
+    gfx.text("M mode | B side | R reset | drag pack", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  else
+    gfx.text("M mode | BTN1 shader | BTN2 tune", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  end
 end

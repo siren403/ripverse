@@ -716,3 +716,181 @@ Use shake/post FX sparingly and reserve high intensity for rare events.
 - The Art of Screenshake summary: https://www.gamedesign.gg/knowledge-base/game-design/game-feel-feedback/the-art-of-screenshake-jan-willem-nijman-vlambeer/
 - Juice It or Lose It talk notes: https://lilys.ai/notes/784065
 - Juice audit checklist: https://gamejuice.co.uk/articles/juice-audit-evaluating-game-feel
+
+## RPV-INT-005: Pack Opening Ritual Feel
+
+### Status
+
+Adopted as the working model for pack-opening feel spikes in `playground/usagi-motion-lab`.
+
+Do not treat this as a final card-pack UX spec. Use it to design isolated motion tests for wrapper tear, card stack handling, clue pacing, and reveal tension before moving anything back to the main game.
+
+### Purpose
+
+Make a pack opening feel like a ritual with player agency, not a button that converts a pack into cards.
+
+The useful tension is:
+
+```text
+sealed object -> physical handling -> hidden order -> staged clues -> hit reveal -> next pack pull
+```
+
+### Research Summary
+
+Physical TCG pack opening has two major feel sources:
+
+- Wrapper handling: tearing the top, pulling the back seam, protecting cards from bending, and extracting a stack.
+- Reveal ordering: moving cards from back to front so the rare or hit card is seen last.
+
+Pokemon pack-opening culture commonly calls the reorder step a `card trick`. Set details vary, but the intent is stable: move otherwise-low-information cards away from the end so the rare/hit becomes the final reveal beat.
+
+Digital card-pack UX adds a second model:
+
+- Pack is manipulated as an object before it opens.
+- Cards appear face down.
+- Player reveals cards one at a time.
+- Rarity glow or border treatment can appear before the actual card identity.
+- High-rarity cards get longer anticipation, stronger audiovisual treatment, or a hold beat.
+
+### Pattern Stack
+
+```text
+pack select
+pack handling
+wrapper tear
+stack extraction
+optional card trick
+stack flip
+manual reveal
+clue ladder
+hit hold
+next pack return
+```
+
+### Interaction Contract
+
+- The pack should be a manipulated object, not only a button target.
+- Front opening should validate a top tear: left-to-right or right-to-left across a horizontal tear line.
+- Back opening should validate a vertical seam pull.
+- If a back/card-trick mode is active, card movement and stack flip should be one continuous sequence after the wrapper opens.
+- Reordered cards should remain visible as a moved stack; they should not vanish.
+- During card reveal, the next card should already be physically behind the current card.
+- Low-value cards should support fast repeat reveals.
+- High-rarity cards should delay identifying clues: border/foil first, then rarity marker, then name/value.
+- Rarity anticipation should be tied to input progress, not only a timed animation.
+- The result screen should point the eye back to the next pack instead of ending the ritual.
+
+### Motion Lab Targets
+
+Validate these independently before main-game integration:
+
+```text
+top_tear:
+  gesture: horizontal drag along pack top
+  feel: thin wrapper resistance, quick tear once committed
+
+back_seam:
+  gesture: vertical drag down pack center
+  feel: stronger zipper-like resistance
+
+stack_trick:
+  gesture: automatic after back seam
+  feel: two or more cards slide forward, stay stacked, then full stack flips
+
+face_slide:
+  gesture: card drag
+  feel: next card is immediately visible under the current card
+
+clue_ladder:
+  gesture: reveal progress
+  feel: border -> foil/glow -> rarity -> name/value
+
+hit_hold:
+  gesture: high-rarity threshold
+  feel: resistance stretch, short hold beat, outCirc snap
+```
+
+### Failure Modes To Prevent
+
+#### Button Conversion
+
+Problem:
+
+```text
+tap open -> cards appear
+```
+
+Why it fails:
+
+The player does not feel wrapper handling, card stack manipulation, or reveal agency.
+
+Required fix:
+
+Require at least one direct manipulation phase for the pack or card stack.
+
+#### Hidden Automation
+
+Problem:
+
+```text
+card trick happens instantly or off-screen
+```
+
+Why it fails:
+
+The user cannot read why the reveal order changed.
+
+Required fix:
+
+Show the moved cards staying in a visible stack and then flipping back into reveal orientation.
+
+#### Early Hit Disclosure
+
+Problem:
+
+```text
+high-rarity border/name/value is obvious at the start of the drag
+```
+
+Why it fails:
+
+The suspense is gone before the player commits the reveal.
+
+Required fix:
+
+Use clue ladder thresholds by rarity. High-rarity cards should reveal identity later than common cards.
+
+#### No Fast Path
+
+Problem:
+
+```text
+every card gets a long animation
+```
+
+Why it fails:
+
+Repeated pack opening becomes slow and fatiguing.
+
+Required fix:
+
+Let low-value cards clear quickly while preserving stronger pacing only for hits.
+
+### Acceptance Checks
+
+- The pack can be opened by direct manipulation in motion lab.
+- Top tear and back seam have different gesture direction and feel.
+- Back seam mode visibly moves cards and flips the stack before reveal.
+- At least one reveal path shows next-card-under-current-card continuity.
+- High-rarity reveal delays identity more than low-rarity reveal.
+- A player can still move quickly through low-value cards.
+- The motion remains readable without final card art.
+
+### Source References
+
+- Pokemon card trick by set and purpose: https://pokepatch.com/2022/07/26/how-to-open-pokemon-cards-card-trick-for-each-set/
+- Pokemon pack trick guide: https://cardcollector.co.uk/pokemon-card-trick-pack-opening/
+- Pokemon pack opening and pack trick overview: https://cardcodex.com/blog/how-to-open-pokemon-cards-properly/
+- Hearthstone pack opening flow: https://hearthstone.fandom.com/wiki/Card_pack
+- Hearthstone pack interaction summary: https://liquipedia.net/hearthstone/Card_Packs
+- Loot box anticipation and Hearthstone interaction discussion: https://www.pcgamer.com/behind-the-addictive-psychology-and-seductive-art-of-loot-boxes/

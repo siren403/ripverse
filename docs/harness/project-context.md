@@ -35,7 +35,7 @@ When a repeated clarification, agent mistake, or project convention appears, use
 
 ## Knowledge Databases
 
-- `docs/harness/interaction-pattern-database.md`: reusable interaction and motion patterns, including `ResistanceSnapReveal`, `MotionPreset`, `KineticCardDrag`, and game feel audit guidance for tactile card reveal work.
+- `docs/harness/interaction-pattern-database.md`: reusable interaction and motion patterns, including `ResistanceSnapReveal`, `MotionPreset`, `KineticCardDrag`, `PackOpeningRitualFeel`, and game feel audit guidance for tactile card reveal work.
 
 ## Turn Closure Policy
 
