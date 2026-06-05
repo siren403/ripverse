@@ -96,6 +96,12 @@ local handle_mouse_click
 local update_shop_drag
 local update_pack_select_drag
 local update_pack_drag
+local motion_start
+local motion_update
+local motion_value
+local motion_ease
+local motion_preset
+local kinetic_drag_update
 local buy_box
 local selected_box
 local sync_packs_remaining
@@ -177,6 +183,14 @@ local reveal_clue_progress
 local point_in_rect
 local fit_text
 
+local MotionPreset = {
+  layout_reflow = { duration = 0.18, ease = "out_cubic" },
+  snap_return = { duration = 0.13, ease = "out_circ" },
+  card_lift = { duration = 0.12, ease = "out_back" },
+  card_settle = { duration = 0.16, ease = "out_cubic" },
+  pack_rip_jolt = { duration = 0.10, ease = "out_circ" },
+}
+
 function _config()
   return {
     name = "Ripverse Playground",
@@ -192,6 +206,7 @@ function _init()
     inventory = {},
     selected_box_index = 1,
     shop_offset = 0,
+    motions = {},
     shop_drag = nil,
     pack_queue = {},
     pack_turn = 0,
@@ -208,6 +223,7 @@ function _init()
     reveal_phase = "idle",
     drag = nil,
     drag_card = nil,
+    kinetic_drag = nil,
     card_snap = nil,
     tear_dir = 1,
     tear_progress = 0,
@@ -228,6 +244,8 @@ function _init()
 end
 
 function _update(dt)
+  motion_update(dt)
+
   if input.pressed(input.BTN1) or input.key_pressed(input.KEY_ENTER) then
     advance_primary()
   end
@@ -243,11 +261,11 @@ function _update(dt)
   if State.screen == "box_shop" then
     update_shop_drag()
   elseif State.screen == "pack_select" then
-    update_pack_select_drag()
+    update_pack_select_drag(dt)
   end
 
   if State.screen == "pack_reveal" then
-    update_pack_drag()
+    update_pack_drag(dt)
   end
 
   if input.mouse_pressed(input.MOUSE_LEFT) then
@@ -375,7 +393,7 @@ function update_shop_drag()
   end
 end
 
-function update_pack_select_drag()
+function update_pack_select_drag(_dt)
   local mx, my = input.mouse()
   local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
 
@@ -387,6 +405,7 @@ function update_pack_select_drag()
   end
 
   if input.mouse_pressed(input.MOUSE_LEFT) and point_in_rect(mx, my, HITBOX.active_pack) then
+    State.motions.pack_turn = nil
     State.drag = {
       kind = "pack_turn",
       start_x = mx,
@@ -403,10 +422,13 @@ function update_pack_select_drag()
       State.drag.moved = true
     end
   elseif State.drag and State.drag.kind == "pack_turn" then
-    State.pack_turn = State.pack_turn >= 0.5 and 1 or 0
-    State.pack_side = State.pack_turn >= 0.5 and "back" or "front"
     if State.drag.moved then
-      State.message = State.pack_side == "back" and "Back seam staged." or "Top tear staged."
+      local target_turn = State.pack_turn >= 0.5 and 1 or 0
+      motion_start("pack_turn", State.pack_turn, target_turn, motion_preset("layout_reflow"), function(value)
+        State.pack_turn = value
+        State.pack_side = value >= 0.5 and "back" or "front"
+      end)
+      State.message = target_turn >= 0.5 and "Back seam staged." or "Top tear staged."
     else
       start_pack()
     end
@@ -414,7 +436,7 @@ function update_pack_select_drag()
   end
 end
 
-function update_pack_drag()
+function update_pack_drag(dt)
   local mx, my = input.mouse()
   local in_bounds = mx >= 0 and mx < usagi.GAME_W and my >= 0 and my < usagi.GAME_H
 
@@ -446,6 +468,12 @@ function update_pack_drag()
       State.card_pointer_x = STACK_CARD_X
       State.card_tension_gap = 0
       State.card_snap_ready = false
+      State.kinetic_drag = {
+        x = STACK_CARD_X,
+        y = STACK_CARD_Y,
+        vx = 0,
+        vy = 0,
+      }
     end
   end
 
@@ -471,27 +499,19 @@ function update_pack_drag()
         local pointer_dy = math.max(0, raw_dy)
         local card_dy = rubber_band_drag(pointer_dy, profile)
         if pointer_dy >= profile.breakpoint then
-          start_card_snap("vertical", card_dy, profile)
+          start_card_snap("vertical", math.max(0, STACK_CARD_Y - State.card_drag_y), profile)
           return
         end
-        State.card_pointer_x = STACK_CARD_X
-        State.card_drag_x = STACK_CARD_X
-        State.card_drag_y = STACK_CARD_Y - math.floor(card_dy)
-        State.card_drag_progress = math.max(0, math.min(1, card_dy / DRAG_COMMIT_DISTANCE))
-        State.card_tension_gap = math.max(0, pointer_dy - card_dy)
+        kinetic_drag_update("vertical", STACK_CARD_X, STACK_CARD_Y - card_dy, STACK_CARD_X, math.max(0, pointer_dy - card_dy), dt)
         State.card_snap_ready = pointer_dy >= profile.breakpoint
       else
         local pointer_dx = math.max(0, raw_dx)
         local card_dx = rubber_band_drag(pointer_dx, profile)
         if pointer_dx >= profile.breakpoint then
-          start_card_snap("horizontal", card_dx, profile)
+          start_card_snap("horizontal", math.max(0, State.card_drag_x - STACK_CARD_X), profile)
           return
         end
-        State.card_pointer_x = STACK_CARD_X + pointer_dx
-        State.card_drag_x = STACK_CARD_X + math.floor(card_dx)
-        State.card_drag_y = STACK_CARD_Y
-        State.card_drag_progress = math.max(0, math.min(1, card_dx / DRAG_COMMIT_DISTANCE))
-        State.card_tension_gap = math.max(0, pointer_dx - card_dx)
+        kinetic_drag_update("horizontal", STACK_CARD_X + card_dx, STACK_CARD_Y, STACK_CARD_X + pointer_dx, math.max(0, pointer_dx - card_dx), dt)
         State.card_snap_ready = pointer_dx >= profile.breakpoint
       end
     end
@@ -510,6 +530,101 @@ function update_pack_drag()
     end
 
     clear_card_drag_state()
+  end
+end
+
+function motion_preset(name)
+  return MotionPreset[name] or MotionPreset.layout_reflow
+end
+
+function motion_start(id, from, to, preset, setter)
+  State.motions[id] = {
+    from = from,
+    to = to,
+    duration = preset.duration,
+    ease = preset.ease,
+    started_at = usagi.elapsed,
+    setter = setter,
+  }
+end
+
+function motion_update(_dt)
+  if State.motions == nil then
+    return
+  end
+
+  local finished = {}
+
+  for id, motion in pairs(State.motions) do
+    local t = math.min(1, (usagi.elapsed - motion.started_at) / motion.duration)
+    local value = motion.from + (motion.to - motion.from) * motion_ease(motion.ease, t)
+    motion.setter(value)
+
+    if t >= 1 then
+      table.insert(finished, id)
+    end
+  end
+
+  for _, id in ipairs(finished) do
+    State.motions[id] = nil
+  end
+end
+
+function motion_value(id, fallback)
+  local motion = State.motions[id]
+  if motion == nil then
+    return fallback
+  end
+
+  local t = math.min(1, (usagi.elapsed - motion.started_at) / motion.duration)
+  return motion.from + (motion.to - motion.from) * motion_ease(motion.ease, t)
+end
+
+function motion_ease(name, t)
+  local clamped = math.max(0, math.min(1, t))
+
+  if name == "out_circ" then
+    local shifted = clamped - 1
+    return math.sqrt(1 - shifted * shifted)
+  elseif name == "out_back" then
+    local c1 = 1.70158
+    local c3 = c1 + 1
+    local shifted = clamped - 1
+    return 1 + c3 * shifted * shifted * shifted + c1 * shifted * shifted
+  elseif name == "out_quad" then
+    return 1 - (1 - clamped) * (1 - clamped)
+  end
+
+  return 1 - (1 - clamped) * (1 - clamped) * (1 - clamped)
+end
+
+function kinetic_drag_update(axis, target_x, target_y, pointer_x, tension_gap, dt)
+  local kinetic = State.kinetic_drag
+  if kinetic == nil then
+    kinetic = { x = STACK_CARD_X, y = STACK_CARD_Y, vx = 0, vy = 0 }
+    State.kinetic_drag = kinetic
+  end
+
+  local elapsed = dt or 1 / 60
+  local stiffness = 24
+  local follow = 1 - math.exp(-stiffness * elapsed)
+  local old_x = kinetic.x
+  local old_y = kinetic.y
+
+  kinetic.x = kinetic.x + (target_x - kinetic.x) * follow
+  kinetic.y = kinetic.y + (target_y - kinetic.y) * follow
+  kinetic.vx = (kinetic.x - old_x) / elapsed
+  kinetic.vy = (kinetic.y - old_y) / elapsed
+
+  State.card_pointer_x = pointer_x
+  State.card_drag_x = math.floor(kinetic.x + 0.5)
+  State.card_drag_y = math.floor(kinetic.y + 0.5)
+  State.card_tension_gap = tension_gap
+
+  if axis == "vertical" then
+    State.card_drag_progress = math.max(0, math.min(1, (STACK_CARD_Y - kinetic.y) / DRAG_COMMIT_DISTANCE))
+  else
+    State.card_drag_progress = math.max(0, math.min(1, (kinetic.x - STACK_CARD_X) / DRAG_COMMIT_DISTANCE))
   end
 end
 
@@ -1487,6 +1602,7 @@ function start_card_snap(axis, from_distance, profile)
     from = from_distance,
     to = profile.open_dx,
     duration = profile.snap_duration,
+    ease = motion_preset("snap_return").ease,
     started_at = usagi.elapsed,
   }
   State.card_snap_ready = true
@@ -1502,7 +1618,7 @@ function update_card_snap()
   end
 
   local t = math.min(1, (usagi.elapsed - snap.started_at) / snap.duration)
-  local distance = snap.from + (snap.to - snap.from) * snap_ease_out(t)
+  local distance = snap.from + (snap.to - snap.from) * motion_ease(snap.ease, t)
 
   if snap.axis == "vertical" then
     State.card_drag_x = STACK_CARD_X
@@ -1525,6 +1641,7 @@ end
 function clear_card_drag_state()
   State.drag = nil
   State.drag_card = nil
+  State.kinetic_drag = nil
   State.card_snap = nil
   State.card_drag_x = 0
   State.card_drag_y = 0
@@ -1551,9 +1668,7 @@ function drag_profile(card)
 end
 
 function snap_ease_out(t)
-  local clamped = math.max(0, math.min(1, t))
-  local shifted = clamped - 1
-  return math.sqrt(1 - shifted * shifted)
+  return motion_ease("out_circ", t)
 end
 
 function reveal_clue_progress(card)
