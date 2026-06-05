@@ -149,6 +149,10 @@ end
 function update_ui_controls()
   local mx, my = input.mouse()
 
+  if not input.mouse_held(input.MOUSE_LEFT) then
+    State.ui_drag = nil
+  end
+
   if input.mouse_pressed(input.MOUSE_LEFT) then
     if point_in_rect(mx, my, 8, UI_BUTTON_Y, 52, UI_BUTTON_H) then
       State.lab_mode = State.lab_mode == "cards" and "pack" or "cards"
@@ -386,7 +390,7 @@ function draw_front_perforation(pack, color)
 
   draw_dotted_line(PACK_X + 8, path_y, PACK_X + PACK_W - 8, path_y, color, 6)
   draw_moving_arrow(PACK_X + 10, path_y - 4, PACK_W - 20, pack.tear, tear_direction(pack), color)
-  gfx.rect_fill(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 5, color)
+  draw_tear_fragments(tear_x, PACK_Y + 4, tear_w, tear_direction(pack), color)
   draw_jagged_edge(tear_x, PACK_Y + CRIMP_H + 7, tear_w, tear_direction(pack), gfx.COLOR_ORANGE)
 
   if pack.drag ~= nil then
@@ -419,7 +423,6 @@ function draw_front_foil_peel(pack, color)
 
   draw_dotted_line(PACK_X + 8, PACK_Y + CRIMP_H + 4, PACK_X + PACK_W - 8, PACK_Y + CRIMP_H + 4, gfx.COLOR_LIGHT_GRAY, 7)
   if tear_w > 1 then
-    gfx.rect_fill(base_x, PACK_Y + 2, tear_w, CRIMP_H + 3, color)
     for i = 0, 4 do
       local sx = base_x + i * math.max(2, tear_w / 5)
       local sy = PACK_Y + CRIMP_H + math.sin(State.t * 10 + i) * 2
@@ -434,7 +437,7 @@ function draw_back_perforation(pack, color)
   local x = PACK_X + PACK_W / 2
   draw_dotted_line(x, PACK_Y + CRIMP_H + 4, x, PACK_Y + PACK_H - CRIMP_H - 4, color, 6)
   draw_moving_arrow(x - 4, PACK_Y + CRIMP_H + 6, seam_h, pack.tear, 1, color, true)
-  gfx.rect_fill(x - 4, PACK_Y + CRIMP_H + 4, 8, open_h, color)
+  draw_vertical_tear_fragments(x - 4, PACK_Y + CRIMP_H + 4, open_h, color)
   draw_jagged_vertical(x + 7, PACK_Y + CRIMP_H + 4, open_h, color)
 end
 
@@ -457,6 +460,34 @@ function draw_tear_handle(x, y, dir, color)
   gfx.circ_fill(tab_x, y, 3, color)
   gfx.line(tab_x, y, tab_x + dir * 7, y - 4, color)
   gfx.line(tab_x, y, tab_x + dir * 7, y + 4, color)
+end
+
+function draw_tear_fragments(x, y, w, dir, color)
+  if w <= 1 then
+    return
+  end
+
+  local pieces = math.max(1, math.floor(w / 9))
+  for i = 0, pieces do
+    local px = x + i * math.max(4, w / math.max(1, pieces + 1))
+    local py = y + ((i % 2 == 0) and 1 or 5)
+    gfx.line(px, py, px + dir * 5, py - 3, color)
+    gfx.line(px, py + 5, px + dir * 7, py + 1, i % 2 == 0 and gfx.COLOR_TRUE_WHITE or color)
+  end
+end
+
+function draw_vertical_tear_fragments(x, y, h, color)
+  if h <= 1 then
+    return
+  end
+
+  local pieces = math.max(1, math.floor(h / 9))
+  for i = 0, pieces do
+    local py = y + i * math.max(4, h / math.max(1, pieces + 1))
+    local px = x + ((i % 2 == 0) and -2 or 4)
+    gfx.line(px, py, px + 6, py + 5, color)
+    gfx.line(px + 8, py, px + 2, py + 6, i % 2 == 0 and gfx.COLOR_TRUE_WHITE or color)
+  end
 end
 
 function draw_booster_shell(x, y, w, h, side, color)
@@ -745,8 +776,11 @@ function update_card_drag(dt)
     end
   end
 
-  if State.drag == nil and State.ui_drag == nil and input.mouse_held(input.MOUSE_LEFT) then
-    local hit = hit_card(mx, my)
+  if State.drag == nil
+    and State.ui_drag == nil
+    and input.mouse_held(input.MOUSE_LEFT)
+    and point_in_rect(mx, my, 24, 44, 272, 98) then
+    local hit = hit_card(mx, my) or frontmost_card()
     if hit ~= nil then
       State.drag = {
         index = hit.index,
@@ -865,6 +899,21 @@ function nearest_front_card(mx, my, cards)
     if d < best_d and d < 34 * 34 and item.depth > 0.72 then
       best = item
       best_d = d
+    end
+  end
+
+  return best
+end
+
+function frontmost_card()
+  local cards = build_card_draw_list()
+  local best = nil
+  local best_depth = -1
+
+  for _, item in ipairs(cards) do
+    if item.depth > best_depth then
+      best = item
+      best_depth = item.depth
     end
   end
 
