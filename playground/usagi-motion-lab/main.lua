@@ -390,8 +390,7 @@ function draw_front_perforation(pack, color)
   draw_jagged_edge(tear_x, PACK_Y + CRIMP_H + 7, tear_w, tear_direction(pack), gfx.COLOR_ORANGE)
 
   if pack.drag ~= nil then
-    local guide_x = pack.drag.dir < 0 and pack.drag.x - tear_w or pack.drag.x + tear_w
-    gfx.line_ex(pack.drag.x, pack.drag.y, guide_x, pack.drag.y, 2, color)
+    draw_tear_handle(pack.drag.x, PACK_Y + CRIMP_H + 5, tear_direction(pack), color)
   end
 end
 
@@ -451,6 +450,13 @@ function draw_back_foil_peel(pack, color)
     gfx.tri_fill(seam_x, PACK_Y + CRIMP_H + 4, seam_x + peel, PACK_Y + CRIMP_H + 8, seam_x + peel * 0.6, PACK_Y + CRIMP_H + open_h, gfx.COLOR_ORANGE)
     draw_jagged_vertical(seam_x, PACK_Y + CRIMP_H + 4, open_h, gfx.COLOR_TRUE_WHITE)
   end
+end
+
+function draw_tear_handle(x, y, dir, color)
+  local tab_x = x + dir * 5
+  gfx.circ_fill(tab_x, y, 3, color)
+  gfx.line(tab_x, y, tab_x + dir * 7, y - 4, color)
+  gfx.line(tab_x, y, tab_x + dir * 7, y + 4, color)
 end
 
 function draw_booster_shell(x, y, w, h, side, color)
