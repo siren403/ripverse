@@ -752,6 +752,22 @@ Digital card-pack UX adds a second model:
 - Rarity glow or border treatment can appear before the actual card identity.
 - High-rarity cards get longer anticipation, stronger audiovisual treatment, or a hold beat.
 
+Packaging research adds a practical opening model:
+
+- A tear notch is not decoration. It concentrates pulling force at a small cut so a strong foil/plastic laminate can begin tearing in a controlled way.
+- Tear notch placement is usually near the top seal or just below the heat-sealed region, so the user can tear above the protected contents.
+- Booster-style wrappers rely on visible top/bottom crimp seals and a long back flap/seam. These are structural landmarks, not only texture.
+- A tear strip or perforation line works best when it gives the user a clear grasp point and an intended tear path.
+- Perforation can fail or feel wrong if the line does not actually guide the tear, if the grasp point is unclear, or if the tear path visually separates from the material.
+
+For Ripverse, this means a pack-opening animation needs a physical tear model before shader polish:
+
+```text
+notch / tab -> guided tear path -> separated strip/flap -> torn edge remains visible
+```
+
+Shaders are useful for foil shimmer, heat-seal shine, rarity glow, and torn-edge sparkle, but they cannot replace the missing tear geometry.
+
 ### Pattern Stack
 
 ```text
@@ -808,6 +824,19 @@ clue_ladder:
 hit_hold:
   gesture: high-rarity threshold
   feel: resistance stretch, short hold beat, outCirc snap
+
+tear_variants:
+  perforation:
+    visual: dotted or punched guide line plus moving arrow/pulse
+    motion: resistance, then fast commit along the perforation
+
+  fold_strip:
+    visual: torn top crimp remains attached as a flexible strip
+    motion: strip bends/rolls like a page while exposing the card mouth
+
+  foil_peel:
+    visual: back fin seam separates into two shiny flaps
+    motion: seam opens vertically, flaps curl away from the card stack
 ```
 
 ### Failure Modes To Prevent
@@ -876,6 +905,38 @@ Required fix:
 
 Let low-value cards clear quickly while preserving stronger pacing only for hits.
 
+#### Shader-First Tear
+
+Problem:
+
+```text
+foil glow / particles / shimmer are added before the tear path is legible
+```
+
+Why it fails:
+
+The player sees decoration, not a wrapper being opened.
+
+Required fix:
+
+Define the notch, perforation, separated strip, flap, or torn edge first. Add shader polish only after the tear object and path read clearly.
+
+#### Progress Bar Tear
+
+Problem:
+
+```text
+drag progress only fills a rectangle across the pack
+```
+
+Why it fails:
+
+It reads as a meter instead of material failure.
+
+Required fix:
+
+Show a separated piece of wrapper: lifted strip, curled foil, torn crimp, or split back seam. The removed material must remain visible during the gesture.
+
 ### Acceptance Checks
 
 - The pack can be opened by direct manipulation in motion lab.
@@ -885,6 +946,9 @@ Let low-value cards clear quickly while preserving stronger pacing only for hits
 - High-rarity reveal delays identity more than low-rarity reveal.
 - A player can still move quickly through low-value cards.
 - The motion remains readable without final card art.
+- The tear path is understandable without shader effects.
+- The torn piece or opened flap remains visible while opening.
+- A notch/tab/perforation indicates where the player should begin the gesture.
 
 ### Source References
 
@@ -894,3 +958,8 @@ Let low-value cards clear quickly while preserving stronger pacing only for hits
 - Hearthstone pack opening flow: https://hearthstone.fandom.com/wiki/Card_pack
 - Hearthstone pack interaction summary: https://liquipedia.net/hearthstone/Card_Packs
 - Loot box anticipation and Hearthstone interaction discussion: https://www.pcgamer.com/behind-the-addictive-psychology-and-seductive-art-of-loot-boxes/
+- Tear notch as stress concentrator and controlled opening feature: https://packhit.com/packaging/bags/mylar/closures/tear-notch/
+- Tear notch placement below the heat seal: https://pouch.me/how-to-choose-the-right-tear-notch-for-your-custom-packaging
+- Tear strip as perforated pull-open feature: https://www.cefbox.com/library/tear-strip
+- Foil pouch notch, perforation type, and guided tear path: https://www.alibaba.com/product-insights/snack-packaging-pouch-foil-material-tear-notch.html
+- Booster pack top/bottom crimp and back flap reference: https://sleevenocardbehind.com/how-to-tell-if-pokemon-card-booster-packs-have-been-resealed/
