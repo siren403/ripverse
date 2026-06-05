@@ -8,6 +8,12 @@ The Phase 1 browser preview should come from Usagi's web export:
 usagi export playground/usagi --target web
 ```
 
+For motion and shader feel work, use the separate motion lab instead of the main game playground:
+
+```sh
+usagi export playground/usagi-motion-lab --target web
+```
+
 The expected exported web package contains:
 
 ```text
@@ -38,6 +44,10 @@ usagi 1.1.0
 usagi export playground/usagi --target web
 wrote ripverse-playground-web.zip
 ```
+
+The motion lab is the preferred target while card design, UX, and feel fundamentals are still unstable. It exists to validate shader treatment, depth ordering, drag inertia, tilt, snap, return, and layout reflow without implying those choices are ready for the main game.
+
+Preview the motion lab export with the existing server script by pointing `PREVIEW_DIR` at the unzipped lab export directory.
 
 ## GitHub Pages Deployment
 

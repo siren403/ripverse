@@ -48,6 +48,8 @@ For card-pack opening work, prioritize motion and tactile feel before deeper sys
 
 The primary Phase 1 playground target is Usagi Engine exported to web. As of Usagi v1.1.0, the official release includes a Linux `aarch64` CLI, so the current host can run local Usagi web exports. Use GitHub Actions for GitHub Pages deployment and as a fallback if local export is unavailable.
 
+When the project is validating foundational visual feel, shader treatment, depth ordering, drag inertia, tilt, snap, return, or layout reflow, use `playground/usagi-motion-lab` before changing the main game playground. Treat motion lab work as a feel spike surface; do not imply the results are ready for main-game card UX until the user explicitly moves the work back.
+
 When starting a local static preview server, use the project server script. Prefer foreground mode so the process stays tied to the active Codex exec session and cannot become a dangling server after session end. If background mode is used, stop it with `scripts/stop-web.sh` before ending the turn.
 
 On a headless cloud host, use Tailscale Serve or GitHub Pages for browser access from external devices. For Usagi, serve the actual `usagi export --target web` output, not a browser-native substitute, unless the user explicitly asks for a fallback.
