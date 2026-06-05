@@ -168,7 +168,6 @@ local draw_right_text
 local draw_fit_text
 local drag_progress
 local rubber_band_drag
-local snap_out_progress
 local drag_profile
 local reveal_clue_progress
 local point_in_rect
@@ -1462,8 +1461,7 @@ function rubber_band_drag(pointer_dx, profile)
   end
 
   if pointer_dx >= profile.breakpoint then
-    local snap_progress = snap_out_progress(pointer_dx - profile.breakpoint, profile.snap_window)
-    return profile.hold_dx + (profile.open_dx - profile.hold_dx) * snap_progress
+    return profile.open_dx
   end
 
   local normalized = pointer_dx / profile.breakpoint
@@ -1475,21 +1473,16 @@ function drag_profile(card)
   local tier = rarity_score(card)
 
   if tier <= 2 then
-    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_window = 10, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8, clue_delay = 0.05, clue_span = 0.55 }
+    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8, clue_delay = 0.05, clue_span = 0.55 }
   elseif tier <= 3 then
-    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_window = 9, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 12, sag_divisor = 7, clue_delay = 0.18, clue_span = 0.58 }
+    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 12, sag_divisor = 7, clue_delay = 0.18, clue_span = 0.58 }
   elseif tier <= 4 then
-    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, snap_window = 8, lift = 0, peek = 1, peek_gap = 28, peek_span = 40, tension_gap = 12, sag_divisor = 6, clue_delay = 0.32, clue_span = 0.52 }
+    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, lift = 0, peek = 1, peek_gap = 28, peek_span = 40, tension_gap = 12, sag_divisor = 6, clue_delay = 0.32, clue_span = 0.52 }
   elseif tier <= 6 then
-    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, snap_window = 7, lift = 0, peek = 2, peek_gap = 42, peek_span = 56, tension_gap = 8, sag_divisor = 5, clue_delay = 0.50, clue_span = 0.42 }
+    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, lift = 0, peek = 2, peek_gap = 42, peek_span = 56, tension_gap = 8, sag_divisor = 5, clue_delay = 0.50, clue_span = 0.42 }
   end
 
-  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, snap_window = 6, lift = 0, peek = 2, peek_gap = 56, peek_span = 72, tension_gap = 5, sag_divisor = 4, clue_delay = 0.62, clue_span = 0.34 }
-end
-
-function snap_out_progress(distance, window)
-  local t = math.max(0, math.min(1, distance / math.max(1, window)))
-  return 1 - ((1 - t) * (1 - t) * (1 - t))
+  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, lift = 0, peek = 2, peek_gap = 56, peek_span = 72, tension_gap = 5, sag_divisor = 4, clue_delay = 0.62, clue_span = 0.34 }
 end
 
 function reveal_clue_progress(card)
