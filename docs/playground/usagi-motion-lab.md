@@ -62,6 +62,7 @@ drag cards
 drag pack wrapper in pack mode
 FRONT / BACK button toggles top tear / back seam in pack mode
 RESET button resets pack stage
+PERF / FOLD / PEEL button cycles tear animation variant
 SHADER button cycles shader
 TUNE button selects tuning field
 slider adjusts selected tuning field

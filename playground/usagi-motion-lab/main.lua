@@ -27,6 +27,11 @@ local CARD_TEMPLATES = {
   { name = "Gearcub", type = "alloy", hp = "100", move = "Bolt Guard", rare = "**" },
   { name = "Astrabbit", type = "spark", hp = "160", move = "Star Rip", rare = "***" },
 }
+local TEAR_VARIANTS = {
+  { id = "perforation", label = "PERF" },
+  { id = "fold_strip", label = "FOLD" },
+  { id = "foil_peel", label = "PEEL" },
+}
 
 local CUBE_VERTS = {
   { -1, -1, -1 }, { 1, -1, -1 }, { 1, 1, -1 }, { -1, 1, -1 },
@@ -87,6 +92,7 @@ function _init()
     ui_drag = nil,
     pack = {
       side = "front",
+      variant = 1,
       phase = "sealed",
       tear = 0,
       drag = nil,
@@ -161,6 +167,10 @@ function update_ui_controls()
       reset_pack_stage()
       return
     elseif State.lab_mode == "pack" and point_in_rect(mx, my, 244, UI_BUTTON_Y, 50, UI_BUTTON_H) then
+      reset_pack_stage()
+      return
+    elseif State.lab_mode == "pack" and point_in_rect(mx, my, 248, UI_BUTTON_Y + 20, 46, UI_BUTTON_H) then
+      State.pack.variant = (State.pack.variant % #TEAR_VARIANTS) + 1
       reset_pack_stage()
       return
     elseif point_in_rect(mx, my, 94, UI_SLIDER_Y, 136, 14) then
@@ -327,33 +337,119 @@ function draw_pack_wrapper(pack)
   local pulse = 1 + math.sin(State.t * 8) * 0.08
   local w = PACK_W * pulse
   local x = PACK_X + (PACK_W - w) / 2
+  local variant = TEAR_VARIANTS[pack.variant].id
 
   draw_booster_shell(x, PACK_Y, w, PACK_H, pack.side, color)
 
   if pack.side == "back" then
-    local seam_h = PACK_H - 18
-    local open_h = seam_h * pack.tear
-    gfx.rect(PACK_X + PACK_W / 2 - 3, PACK_Y + CRIMP_H + 3, 6, seam_h - 8, gfx.COLOR_LIGHT_GRAY)
-    gfx.rect_fill(PACK_X + PACK_W / 2 - 4, PACK_Y + CRIMP_H + 3, 8, open_h, color)
-    draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + CRIMP_H + 4, 12, open_h, color)
-    if pack.drag ~= nil then
-      gfx.line_ex(pack.drag.x, pack.drag.y, pack.drag.x, pack.drag.y + open_h, 2, color)
-    end
+    draw_back_tear_variant(pack, variant, color)
     gfx.text("PULL", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
   else
-    local tear_w = PACK_W * pack.tear
-    local tear_x = PACK_X
-    if pack.drag ~= nil and pack.drag.dir < 0 then
-      tear_x = PACK_X + PACK_W - tear_w
-    end
-    gfx.rect(PACK_X + 8, PACK_Y + CRIMP_H + 4, PACK_W - 16, 3, gfx.COLOR_LIGHT_GRAY)
-    gfx.rect_fill(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 6, color)
-    draw_torn_strip(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 3, gfx.COLOR_ORANGE)
-    if pack.drag ~= nil then
-      local guide_x = pack.drag.dir < 0 and pack.drag.x - tear_w or pack.drag.x + tear_w
-      gfx.line_ex(pack.drag.x, pack.drag.y, guide_x, pack.drag.y, 2, color)
-    end
+    draw_front_tear_variant(pack, variant, color)
     gfx.text("TOP TEAR", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
+  end
+end
+
+function draw_front_tear_variant(pack, variant, color)
+  if variant == "fold_strip" then
+    draw_front_fold_strip(pack, color)
+  elseif variant == "foil_peel" then
+    draw_front_foil_peel(pack, color)
+  else
+    draw_front_perforation(pack, color)
+  end
+end
+
+function draw_back_tear_variant(pack, variant, color)
+  if variant == "perforation" then
+    draw_back_perforation(pack, color)
+  else
+    draw_back_foil_peel(pack, color)
+  end
+end
+
+function tear_direction(pack)
+  if pack.drag ~= nil and pack.drag.dir < 0 then
+    return -1
+  end
+  return 1
+end
+
+function tear_start_x(pack, tear_w)
+  return tear_direction(pack) < 0 and PACK_X + PACK_W - tear_w or PACK_X
+end
+
+function draw_front_perforation(pack, color)
+  local tear_w = PACK_W * pack.tear
+  local tear_x = tear_start_x(pack, tear_w)
+  local path_y = PACK_Y + CRIMP_H + 4
+
+  draw_dotted_line(PACK_X + 8, path_y, PACK_X + PACK_W - 8, path_y, color, 6)
+  draw_moving_arrow(PACK_X + 10, path_y - 4, PACK_W - 20, pack.tear, tear_direction(pack), color)
+  gfx.rect_fill(tear_x, PACK_Y + 2, tear_w, CRIMP_H + 5, color)
+  draw_jagged_edge(tear_x, PACK_Y + CRIMP_H + 7, tear_w, tear_direction(pack), gfx.COLOR_ORANGE)
+
+  if pack.drag ~= nil then
+    local guide_x = pack.drag.dir < 0 and pack.drag.x - tear_w or pack.drag.x + tear_w
+    gfx.line_ex(pack.drag.x, pack.drag.y, guide_x, pack.drag.y, 2, color)
+  end
+end
+
+function draw_front_fold_strip(pack, color)
+  local tear_w = PACK_W * pack.tear
+  local dir = tear_direction(pack)
+  local base_x = tear_start_x(pack, tear_w)
+  local curl = math.sin(pack.tear * 3.14) * 12
+  local fold_y = PACK_Y + 2 - curl
+
+  draw_dotted_line(PACK_X + 8, PACK_Y + CRIMP_H + 4, PACK_X + PACK_W - 8, PACK_Y + CRIMP_H + 4, gfx.COLOR_LIGHT_GRAY, 5)
+  if tear_w > 1 then
+    local x1 = dir < 0 and base_x + tear_w or base_x
+    local x2 = dir < 0 and base_x or base_x + tear_w
+    gfx.tri_fill(base_x, PACK_Y + 2, base_x + tear_w, PACK_Y + 2, x2, fold_y + CRIMP_H + 8, color)
+    gfx.tri_fill(base_x, PACK_Y + 2, x2, fold_y + CRIMP_H + 8, x1, fold_y + 4, gfx.COLOR_ORANGE)
+    draw_jagged_edge(base_x, PACK_Y + CRIMP_H + 8, tear_w, dir, gfx.COLOR_LIGHT_GRAY)
+  end
+end
+
+function draw_front_foil_peel(pack, color)
+  local tear_w = PACK_W * pack.tear
+  local dir = tear_direction(pack)
+  local base_x = tear_start_x(pack, tear_w)
+  local peel_h = 8 + pack.tear * 14
+
+  draw_dotted_line(PACK_X + 8, PACK_Y + CRIMP_H + 4, PACK_X + PACK_W - 8, PACK_Y + CRIMP_H + 4, gfx.COLOR_LIGHT_GRAY, 7)
+  if tear_w > 1 then
+    gfx.rect_fill(base_x, PACK_Y + 2, tear_w, CRIMP_H + 3, color)
+    for i = 0, 4 do
+      local sx = base_x + i * math.max(2, tear_w / 5)
+      local sy = PACK_Y + CRIMP_H + math.sin(State.t * 10 + i) * 2
+      gfx.line(sx, sy, sx + dir * 9, sy + peel_h, i % 2 == 0 and gfx.COLOR_TRUE_WHITE or color)
+    end
+  end
+end
+
+function draw_back_perforation(pack, color)
+  local seam_h = PACK_H - CRIMP_H * 2 - 8
+  local open_h = seam_h * pack.tear
+  local x = PACK_X + PACK_W / 2
+  draw_dotted_line(x, PACK_Y + CRIMP_H + 4, x, PACK_Y + PACK_H - CRIMP_H - 4, color, 6)
+  draw_moving_arrow(x - 4, PACK_Y + CRIMP_H + 6, seam_h, pack.tear, 1, color, true)
+  gfx.rect_fill(x - 4, PACK_Y + CRIMP_H + 4, 8, open_h, color)
+  draw_jagged_vertical(x + 7, PACK_Y + CRIMP_H + 4, open_h, color)
+end
+
+function draw_back_foil_peel(pack, color)
+  local seam_h = PACK_H - CRIMP_H * 2 - 8
+  local open_h = seam_h * pack.tear
+  local seam_x = PACK_X + PACK_W / 2
+  local peel = 5 + pack.tear * 18
+
+  gfx.rect(PACK_X + PACK_W / 2 - 3, PACK_Y + CRIMP_H + 3, 6, seam_h, gfx.COLOR_LIGHT_GRAY)
+  if open_h > 1 then
+    gfx.tri_fill(seam_x, PACK_Y + CRIMP_H + 4, seam_x - peel, PACK_Y + CRIMP_H + 8, seam_x - peel * 0.6, PACK_Y + CRIMP_H + open_h, color)
+    gfx.tri_fill(seam_x, PACK_Y + CRIMP_H + 4, seam_x + peel, PACK_Y + CRIMP_H + 8, seam_x + peel * 0.6, PACK_Y + CRIMP_H + open_h, gfx.COLOR_ORANGE)
+    draw_jagged_vertical(seam_x, PACK_Y + CRIMP_H + 4, open_h, gfx.COLOR_TRUE_WHITE)
   end
 end
 
@@ -408,6 +504,69 @@ function draw_torn_strip(x, y, w, h, color)
     local px = x + i * math.max(2, w / 6)
     local py = y + math.sin(State.t * 12 + i) * 2
     gfx.line(px, py, px + math.max(2, w / 8), py + h, color)
+  end
+end
+
+function draw_dotted_line(x1, y1, x2, y2, color, dots)
+  local count = dots or 6
+  for i = 0, count do
+    local t = i / count
+    local x = x1 + (x2 - x1) * t
+    local y = y1 + (y2 - y1) * t
+    gfx.rect_fill(x - 1, y - 1, 2, 2, color)
+  end
+end
+
+function draw_moving_arrow(x, y, span, progress, dir, color, vertical)
+  local pulse = (State.t * 1.8 + progress * 0.6) % 1
+  local pos = pulse * span
+  if dir < 0 then
+    pos = span - pos
+  end
+
+  if vertical then
+    local ay = y + pos
+    gfx.line(x, ay, x + 4, ay + 4, color)
+    gfx.line(x + 8, ay, x + 4, ay + 4, color)
+    return
+  end
+
+  local ax = x + pos
+  gfx.line(ax, y, ax + dir * 6, y + 4, color)
+  gfx.line(ax, y + 8, ax + dir * 6, y + 4, color)
+end
+
+function draw_jagged_edge(x, y, w, dir, color)
+  if w <= 0 then
+    return
+  end
+
+  local steps = math.max(2, math.floor(w / 7))
+  local last_x = x
+  local last_y = y
+  for i = 1, steps do
+    local nx = x + (w / steps) * i
+    local ny = y + ((i % 2 == 0) and 3 or -2)
+    gfx.line(last_x, last_y, nx, ny, color)
+    last_x = nx
+    last_y = ny
+  end
+end
+
+function draw_jagged_vertical(x, y, h, color)
+  if h <= 0 then
+    return
+  end
+
+  local steps = math.max(2, math.floor(h / 7))
+  local last_x = x
+  local last_y = y
+  for i = 1, steps do
+    local nx = x + ((i % 2 == 0) and 3 or -3)
+    local ny = y + (h / steps) * i
+    gfx.line(last_x, last_y, nx, ny, color)
+    last_x = nx
+    last_y = ny
   end
 end
 
@@ -920,6 +1079,7 @@ function draw_hud()
   if State.lab_mode == "pack" then
     draw_button(192, UI_BUTTON_Y, 46, State.pack.side == "front" and "BACK" or "FRONT", gfx.COLOR_PINK)
     draw_button(244, UI_BUTTON_Y, 50, "RESET", gfx.COLOR_ORANGE)
+    draw_button(248, UI_BUTTON_Y + 20, 46, TEAR_VARIANTS[State.pack.variant].label, gfx.COLOR_BLUE)
   end
 
   draw_tune_slider(field, value)
