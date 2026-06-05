@@ -1505,8 +1505,9 @@ function drag_profile(card)
 end
 
 function snap_ease_out(t)
-  local inv = 1 - math.max(0, math.min(1, t))
-  return 1 - inv * inv * inv
+  local clamped = math.max(0, math.min(1, t))
+  local shifted = clamped - 1
+  return math.sqrt(1 - shifted * shifted)
 end
 
 function reveal_clue_progress(card)
