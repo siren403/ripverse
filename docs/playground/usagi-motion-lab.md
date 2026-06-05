@@ -57,15 +57,14 @@ If Tailscale Serve is already configured as `8091 -> localhost:8090`, the same e
 ## Current Controls
 
 ```text
-M toggle card / pack lab mode
+PACK / CARDS button toggles card / pack lab mode
 drag cards
 drag pack wrapper in pack mode
-B toggle front top tear / back seam in pack mode
-R reset pack stage
-BTN1 cycle shader
-BTN2 / Space select tuning field
-Arrow left/right adjust selected field
-Arrow up/down coarse-adjust selected field
+FRONT / BACK button toggles top tear / back seam in pack mode
+RESET button resets pack stage
+SHADER button cycles shader
+TUNE button selects tuning field
+slider adjusts selected tuning field
 ```
 
 ## Main Game Boundary

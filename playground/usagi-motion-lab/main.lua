@@ -30,6 +30,9 @@ local PACK_W = 72
 local PACK_H = 94
 local MINI_CARD_W = 42
 local MINI_CARD_H = 58
+local UI_BUTTON_H = 16
+local UI_BUTTON_Y = 24
+local UI_SLIDER_Y = 146
 local TUNE_FIELDS = {
   { key = "drag_follow", label = "follow", min = 0.08, max = 0.62, step = 0.03 },
   { key = "velocity_roll", label = "roll", min = 0.001, max = 0.009, step = 0.0005 },
@@ -63,6 +66,7 @@ function _init()
     },
     drag = nil,
     returning = nil,
+    ui_drag = nil,
     pack = {
       side = "front",
       phase = "sealed",
@@ -86,15 +90,7 @@ end
 function _update(dt)
   State.t = State.t + dt
 
-  if input.pressed(input.BTN1) then
-    State.shader_idx = (State.shader_idx % #SHADERS) + 1
-    gfx.shader_set(SHADERS[State.shader_idx])
-  end
-
-  if key_pressed(input.KEY_M) or key_pressed(input.KEY_ENTER) then
-    State.lab_mode = State.lab_mode == "cards" and "pack" or "cards"
-  end
-
+  update_ui_controls()
   update_tuning()
   if State.lab_mode == "pack" then
     update_pack_stage(dt)
@@ -105,6 +101,10 @@ function _update(dt)
 end
 
 function update_tuning()
+  if State.ui_drag == "tune_slider" then
+    update_tune_slider(input.mouse())
+  end
+
   if input.pressed(input.BTN2) or key_pressed(input.KEY_SPACE) then
     State.tune_idx = (State.tune_idx % #TUNE_FIELDS) + 1
   end
@@ -119,6 +119,45 @@ function update_tuning()
   elseif key_pressed(input.KEY_UP) then
     State.tune[field.key] = clamp(State.tune[field.key] + field.step * 4, field.min, field.max)
   end
+end
+
+function update_ui_controls()
+  local mx, my = input.mouse()
+
+  if input.mouse_pressed(input.MOUSE_LEFT) then
+    if point_in_rect(mx, my, 8, UI_BUTTON_Y, 52, UI_BUTTON_H) then
+      State.lab_mode = State.lab_mode == "cards" and "pack" or "cards"
+      State.drag = nil
+      State.returning = nil
+      return
+    elseif point_in_rect(mx, my, 66, UI_BUTTON_Y, 62, UI_BUTTON_H) then
+      State.shader_idx = (State.shader_idx % #SHADERS) + 1
+      gfx.shader_set(SHADERS[State.shader_idx])
+      return
+    elseif point_in_rect(mx, my, 134, UI_BUTTON_Y, 52, UI_BUTTON_H) then
+      State.tune_idx = (State.tune_idx % #TUNE_FIELDS) + 1
+      return
+    elseif State.lab_mode == "pack" and point_in_rect(mx, my, 192, UI_BUTTON_Y, 46, UI_BUTTON_H) then
+      State.pack.side = State.pack.side == "front" and "back" or "front"
+      reset_pack_stage()
+      return
+    elseif State.lab_mode == "pack" and point_in_rect(mx, my, 244, UI_BUTTON_Y, 50, UI_BUTTON_H) then
+      reset_pack_stage()
+      return
+    elseif point_in_rect(mx, my, 94, UI_SLIDER_Y, 136, 14) then
+      State.ui_drag = "tune_slider"
+      update_tune_slider(mx, my)
+      return
+    end
+  elseif input.mouse_released(input.MOUSE_LEFT) then
+    State.ui_drag = nil
+  end
+end
+
+function update_tune_slider(mx, _my)
+  local field = TUNE_FIELDS[State.tune_idx]
+  local t = clamp((mx - 96) / 130, 0, 1)
+  State.tune[field.key] = field.min + (field.max - field.min) * t
 end
 
 function _draw(_dt)
@@ -200,7 +239,10 @@ function update_pack_stage(dt)
     return
   end
 
-  if pack.drag == nil and input.mouse_pressed(input.MOUSE_LEFT) and point_in_rect(mx, my, PACK_X, PACK_Y, PACK_W, PACK_H) then
+  if State.ui_drag == nil
+    and pack.drag == nil
+    and input.mouse_pressed(input.MOUSE_LEFT)
+    and point_in_rect(mx, my, PACK_X - 12, PACK_Y - 12, PACK_W + 24, PACK_H + 24) then
     pack.drag = {
       x = mx,
       y = my,
@@ -278,6 +320,9 @@ function draw_pack_wrapper(pack)
     gfx.rect(PACK_X + PACK_W / 2 - 2, PACK_Y + 9, 4, seam_h, gfx.COLOR_LIGHT_GRAY)
     gfx.rect_fill(PACK_X + PACK_W / 2 - 3, PACK_Y + 9, 6, open_h, color)
     draw_torn_strip(PACK_X + PACK_W / 2 + 8, PACK_Y + 8, 12, open_h, color)
+    if pack.drag ~= nil then
+      gfx.line_ex(pack.drag.x, pack.drag.y, pack.drag.x, pack.drag.y + open_h, 2, color)
+    end
     gfx.text("PULL DOWN", PACK_X + 4, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
   else
     local tear_w = PACK_W * pack.tear
@@ -290,6 +335,10 @@ function draw_pack_wrapper(pack)
     gfx.rect(PACK_X + 6, PACK_Y + 14, PACK_W - 12, 3, gfx.COLOR_LIGHT_GRAY)
     gfx.rect_fill(tear_x, PACK_Y + 8, tear_w, 13, color)
     draw_torn_strip(tear_x, PACK_Y + 6, tear_w, 9, gfx.COLOR_ORANGE)
+    if pack.drag ~= nil then
+      local guide_x = pack.drag.dir < 0 and pack.drag.x - tear_w or pack.drag.x + tear_w
+      gfx.line_ex(pack.drag.x, pack.drag.y, guide_x, pack.drag.y, 2, color)
+    end
     gfx.text("TOP TEAR", PACK_X + 7, PACK_Y + 76, gfx.COLOR_LIGHT_GRAY)
   end
 end
@@ -728,10 +777,37 @@ function draw_hud()
   gfx.rect_fill(0, 0, usagi.GAME_W, 22, gfx.COLOR_BLACK)
   gfx.text(State.lab_mode == "pack" and "PACK LAB" or "MOTION LAB", 8, 7, gfx.COLOR_YELLOW)
   gfx.text("shader " .. LABELS[State.shader_idx], 212, 7, gfx.COLOR_GREEN)
-  gfx.text(field.label .. " " .. string.format("%.3f", value), 8, 146, gfx.COLOR_YELLOW)
+
+  draw_button(8, UI_BUTTON_Y, 52, State.lab_mode == "pack" and "CARDS" or "PACK", gfx.COLOR_YELLOW)
+  draw_button(66, UI_BUTTON_Y, 62, "SHADER", gfx.COLOR_GREEN)
+  draw_button(134, UI_BUTTON_Y, 52, "TUNE", gfx.COLOR_BLUE)
   if State.lab_mode == "pack" then
-    gfx.text("M mode | B side | R reset | drag pack", 8, 166, gfx.COLOR_LIGHT_GRAY)
-  else
-    gfx.text("M mode | BTN1 shader | BTN2 tune", 8, 166, gfx.COLOR_LIGHT_GRAY)
+    draw_button(192, UI_BUTTON_Y, 46, State.pack.side == "front" and "BACK" or "FRONT", gfx.COLOR_PINK)
+    draw_button(244, UI_BUTTON_Y, 50, "RESET", gfx.COLOR_ORANGE)
   end
+
+  draw_tune_slider(field, value)
+
+  if State.lab_mode == "pack" then
+    gfx.text("drag pack wrapper", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  else
+    gfx.text("drag cards", 8, 166, gfx.COLOR_LIGHT_GRAY)
+  end
+end
+
+function draw_button(x, y, w, label, color)
+  gfx.rect(x, y, w, UI_BUTTON_H, color)
+  gfx.text(label, x + 5, y + 5, color)
+end
+
+function draw_tune_slider(field, value)
+  local x = 96
+  local w = 130
+  local t = (value - field.min) / (field.max - field.min)
+  local knob_x = x + clamp(t, 0, 1) * w
+
+  gfx.text(field.label, 8, UI_SLIDER_Y + 1, gfx.COLOR_YELLOW)
+  gfx.text(string.format("%.3f", value), 236, UI_SLIDER_Y + 1, gfx.COLOR_YELLOW)
+  gfx.line_ex(x, UI_SLIDER_Y + 7, x + w, UI_SLIDER_Y + 7, 3, gfx.COLOR_LIGHT_GRAY)
+  gfx.rect_fill(knob_x - 3, UI_SLIDER_Y + 2, 6, 11, gfx.COLOR_YELLOW)
 end
