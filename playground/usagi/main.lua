@@ -179,6 +179,8 @@ local update_card_snap
 local clear_card_drag_state
 local snap_ease_out
 local drag_profile
+local active_drag_profile
+local reveal_axis
 local reveal_clue_progress
 local point_in_rect
 local fit_text
@@ -496,22 +498,24 @@ function update_pack_drag(dt)
       end
 
       if State.drag.axis == "vertical" then
+        profile = active_drag_profile(reveal_card, "vertical")
         local pointer_dy = math.max(0, raw_dy)
         local card_dy = rubber_band_drag(pointer_dy, profile)
         if pointer_dy >= profile.breakpoint then
           start_card_snap("vertical", math.max(0, STACK_CARD_Y - State.card_drag_y), profile)
           return
         end
-        kinetic_drag_update("vertical", STACK_CARD_X, STACK_CARD_Y - card_dy, STACK_CARD_X, math.max(0, pointer_dy - card_dy), dt)
+        kinetic_drag_update("vertical", STACK_CARD_X, STACK_CARD_Y - card_dy, STACK_CARD_X, math.max(0, pointer_dy - card_dy), dt, profile)
         State.card_snap_ready = pointer_dy >= profile.breakpoint
       else
+        profile = active_drag_profile(reveal_card, "horizontal")
         local pointer_dx = math.max(0, raw_dx)
         local card_dx = rubber_band_drag(pointer_dx, profile)
         if pointer_dx >= profile.breakpoint then
           start_card_snap("horizontal", math.max(0, State.card_drag_x - STACK_CARD_X), profile)
           return
         end
-        kinetic_drag_update("horizontal", STACK_CARD_X + card_dx, STACK_CARD_Y, STACK_CARD_X + pointer_dx, math.max(0, pointer_dx - card_dx), dt)
+        kinetic_drag_update("horizontal", STACK_CARD_X + card_dx, STACK_CARD_Y, STACK_CARD_X + pointer_dx, math.max(0, pointer_dx - card_dx), dt, profile)
         State.card_snap_ready = pointer_dx >= profile.breakpoint
       end
     end
@@ -524,7 +528,7 @@ function update_pack_drag(dt)
       end
     elseif State.drag.kind == "card" then
       if State.card_snap_ready then
-        start_card_snap(State.drag.axis or "horizontal", State.card_drag_progress * DRAG_COMMIT_DISTANCE, drag_profile(State.revealed_cards[State.reveal_index + 1] or State.drag_card))
+        start_card_snap(State.drag.axis or "horizontal", State.card_drag_progress * DRAG_COMMIT_DISTANCE, active_drag_profile(State.revealed_cards[State.reveal_index + 1] or State.drag_card, State.drag.axis or "horizontal"))
         return
       end
     end
@@ -598,7 +602,7 @@ function motion_ease(name, t)
   return 1 - (1 - clamped) * (1 - clamped) * (1 - clamped)
 end
 
-function kinetic_drag_update(axis, target_x, target_y, pointer_x, tension_gap, dt)
+function kinetic_drag_update(axis, target_x, target_y, pointer_x, tension_gap, dt, profile)
   local kinetic = State.kinetic_drag
   if kinetic == nil then
     kinetic = { x = STACK_CARD_X, y = STACK_CARD_Y, vx = 0, vy = 0 }
@@ -606,7 +610,7 @@ function kinetic_drag_update(axis, target_x, target_y, pointer_x, tension_gap, d
   end
 
   local elapsed = dt or 1 / 60
-  local stiffness = 24
+  local stiffness = profile.follow_stiffness or 24
   local follow = 1 - math.exp(-stiffness * elapsed)
   local old_x = kinetic.x
   local old_y = kinetic.y
@@ -1430,7 +1434,7 @@ function draw_card_suspense(card, x, y, reveal_progress)
 end
 
 function draw_card_peek(card, progress)
-  local profile = drag_profile(card)
+  local profile = active_drag_profile(card, reveal_axis())
   if profile.peek <= 0 then
     return
   end
@@ -1450,7 +1454,7 @@ function draw_card_peek(card, progress)
 end
 
 function draw_tension_line(card)
-  local profile = drag_profile(card)
+  local profile = active_drag_profile(card, reveal_axis())
   if State.card_tension_gap < profile.tension_gap then
     return
   end
@@ -1583,6 +1587,13 @@ function rubber_band_drag(pointer_dx, profile)
     return 0
   end
 
+  if pointer_dx < profile.resist_start then
+    return pointer_dx * profile.start_follow
+  end
+
+  local adjusted_dx = pointer_dx - profile.resist_start
+  local adjusted_breakpoint = math.max(1, profile.breakpoint - profile.resist_start)
+
   if profile.direct and pointer_dx < profile.breakpoint then
     return math.min(profile.hold_dx, pointer_dx * profile.follow)
   end
@@ -1591,9 +1602,9 @@ function rubber_band_drag(pointer_dx, profile)
     return profile.hold_dx
   end
 
-  local normalized = pointer_dx / profile.breakpoint
+  local normalized = adjusted_dx / adjusted_breakpoint
   local eased = 1 - (1 / (1 + normalized * profile.resistance))
-  return profile.hold_dx * eased
+  return profile.resist_start * profile.start_follow + (profile.hold_dx - profile.resist_start * profile.start_follow) * eased
 end
 
 function start_card_snap(axis, from_distance, profile)
@@ -1655,24 +1666,67 @@ function drag_profile(card)
   local tier = rarity_score(card)
 
   if tier <= 2 then
-    return { tier = tier, direct = true, follow = 1.05, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_duration = 0.09, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8, clue_delay = 0.05, clue_span = 0.55 }
+    return { tier = tier, direct = true, follow = 1.05, start_follow = 0.92, resist_start = 0, resistance = 0.35, breakpoint = 48, hold_dx = 42, open_dx = 72, snap_duration = 0.09, follow_stiffness = 30, lift = 0, peek = 0, peek_gap = 999, peek_span = 1, tension_gap = 999, sag_divisor = 8, clue_delay = 0.05, clue_span = 0.55 }
   elseif tier <= 3 then
-    return { tier = tier, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_duration = 0.10, lift = 0, peek = 1, peek_gap = 18, peek_span = 30, tension_gap = 12, sag_divisor = 7, clue_delay = 0.18, clue_span = 0.58 }
+    return { tier = tier, start_follow = 0.48, resist_start = 8, resistance = 1.05, breakpoint = 58, hold_dx = 31, open_dx = 72, snap_duration = 0.10, follow_stiffness = 26, lift = 0, peek = 1, peek_gap = 20, peek_span = 30, tension_gap = 12, sag_divisor = 7, clue_delay = 0.18, clue_span = 0.58 }
   elseif tier <= 4 then
-    return { tier = tier, resistance = 1.95, breakpoint = 72, hold_dx = 22, open_dx = 72, snap_duration = 0.11, lift = 0, peek = 1, peek_gap = 28, peek_span = 40, tension_gap = 12, sag_divisor = 6, clue_delay = 0.32, clue_span = 0.52 }
+    return { tier = tier, start_follow = 0.28, resist_start = 14, resistance = 1.95, breakpoint = 76, hold_dx = 22, open_dx = 72, snap_duration = 0.12, follow_stiffness = 22, lift = 0, peek = 1, peek_gap = 34, peek_span = 44, tension_gap = 12, sag_divisor = 6, clue_delay = 0.38, clue_span = 0.48 }
   elseif tier <= 6 then
-    return { tier = tier, resistance = 3.10, breakpoint = 88, hold_dx = 14, open_dx = 72, snap_duration = 0.12, lift = 0, peek = 2, peek_gap = 42, peek_span = 56, tension_gap = 8, sag_divisor = 5, clue_delay = 0.50, clue_span = 0.42 }
+    return { tier = tier, start_follow = 0.14, resist_start = 22, resistance = 3.10, breakpoint = 96, hold_dx = 14, open_dx = 72, snap_duration = 0.14, follow_stiffness = 18, lift = 0, peek = 2, peek_gap = 54, peek_span = 60, tension_gap = 8, sag_divisor = 5, clue_delay = 0.66, clue_span = 0.30 }
   end
 
-  return { tier = tier, resistance = 4.00, breakpoint = 104, hold_dx = 9, open_dx = 72, snap_duration = 0.13, lift = 0, peek = 2, peek_gap = 56, peek_span = 72, tension_gap = 5, sag_divisor = 4, clue_delay = 0.62, clue_span = 0.34 }
+  return { tier = tier, start_follow = 0.08, resist_start = 28, resistance = 4.40, breakpoint = 116, hold_dx = 10, open_dx = 72, snap_duration = 0.16, follow_stiffness = 15, lift = 0, peek = 2, peek_gap = 68, peek_span = 72, tension_gap = 5, sag_divisor = 4, clue_delay = 0.74, clue_span = 0.24 }
+end
+
+function active_drag_profile(card, axis)
+  local base = drag_profile(card)
+  local profile = {}
+
+  for key, value in pairs(base) do
+    profile[key] = value
+  end
+
+  if axis == "horizontal" then
+    profile.breakpoint = math.max(42, math.floor(profile.breakpoint * 0.82))
+    profile.hold_dx = math.min(48, math.floor(profile.hold_dx * 1.22))
+    profile.follow_stiffness = profile.follow_stiffness + 5
+    profile.clue_delay = math.max(0.04, profile.clue_delay - 0.16)
+    profile.clue_span = math.min(0.62, profile.clue_span + 0.08)
+    if profile.peek_gap ~= 999 then
+      profile.peek_gap = math.max(12, profile.peek_gap - 10)
+    end
+    return profile
+  end
+
+  profile.breakpoint = math.floor(profile.breakpoint * 1.12)
+  profile.hold_dx = math.max(7, math.floor(profile.hold_dx * 0.82))
+  profile.resist_start = math.floor(profile.resist_start * 1.18)
+  profile.start_follow = profile.start_follow * 0.78
+  profile.follow_stiffness = math.max(12, profile.follow_stiffness - 4)
+  profile.clue_delay = math.min(0.82, profile.clue_delay + 0.10)
+  profile.clue_span = math.max(0.20, profile.clue_span - 0.08)
+  profile.peek_gap = profile.peek_gap == 999 and 999 or profile.peek_gap + 10
+  profile.snap_duration = profile.snap_duration + 0.02
+  return profile
 end
 
 function snap_ease_out(t)
   return motion_ease("out_circ", t)
 end
 
+function reveal_axis()
+  local axis = "horizontal"
+  if State.drag ~= nil and State.drag.axis ~= nil then
+    axis = State.drag.axis
+  elseif State.card_snap ~= nil and State.card_snap.axis ~= nil then
+    axis = State.card_snap.axis
+  end
+
+  return axis
+end
+
 function reveal_clue_progress(card)
-  local profile = drag_profile(card)
+  local profile = active_drag_profile(card, reveal_axis())
   local progress = (State.card_drag_progress - profile.clue_delay) / profile.clue_span
   return math.max(0, math.min(1, progress))
 end
